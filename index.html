@@ -3112,7 +3112,7 @@ function calcCC(p,mes){const d=ccDados(p.id,mes),n=normTxt(p.nome),tipo=tipoPess
   if(+d.outD>0)desc.push({t:d.outDTxt||'Outros descontos',ref:'',v:+d.outD});
   const tp=r2(soma(prov,x=>x.v)),td=r2(soma(desc,x=>x.v)),liq=r2(tp-td),semVale=r2(tp-soma(desc.filter(x=>!x.vale),x=>x.v));
   const ehPagCC=g=>!ehVale(g)&&refDoGasto(g)===mes&&!/viag|passag/.test(normTxt(g.categoria))&&(g.tipoPag?g.tipoPag===tipo:(tipo==='salario'?(!!g.refMes||/salario/.test(normTxt(g.descricao))):tipoDoGasto(g,p)===tipo)),pendL=G.filter(g=>g.pendente&&ehPagCC(g)),pagos=G.filter(g=>!ehVale(g)&&!g.pendente&&refDoGasto(g)===mes&&!/viag|passag/.test(normTxt(g.categoria))&&(g.tipoPag?g.tipoPag===tipo:(tipo==='salario'?(!!g.refMes||/salario/.test(normTxt(g.descricao))):tipoDoGasto(g,p)===tipo))),pago=r2(soma(pagos,g=>+g.valorTotal||0)),pagoBruto=r2(soma(pagos,g=>+g.bruto||+g.valorTotal||0));
-  return{p,mes,tipo,d,prov,desc,tp,td,liq,semVale,faltas,faltasAuto,dias,pago,pagoBruto,saldo:r2(liq-pago),pagos,pendL}}
+  return{p,mes,tipo,d,prov,desc,tp,td,liq,semVale,faltas,faltasAuto,dias,pago,pagoBruto,saldo:r2(liq-pago),pagos,pendL,vales:V}}
 function renderContracheque(){const mes=ccMes(),L=ccPessoas().map(p=>calcCC(p,mes)).filter(c=>c.tp>0||c.td>0||c.pago>0||c.tipo==='salario');
   const opts=(()=>{const s=new Set([hoje().slice(0,7),mesAnteriorKey(),mes]);db.obras.forEach(o=>(o.presencas||[]).forEach(x=>s.add(String(x.d).slice(0,7))));return [...s].filter(Boolean).sort().reverse().slice(0,18)})();
   $('app').innerHTML=`${abasEquipe()}
@@ -3160,7 +3160,12 @@ async function htmlCC(c){const p=c.p,C=db.config,E=(C.empresa||'').toUpperCase()
   ${p.pix?`<p style="font-size:11.5px;margin:4px 0 0"><b>PIX:</b> ${esc(p.pix)}</p>`:''}${c.d.obs?`<p style="font-size:11.5px;margin:4px 0 0"><b>Obs.:</b> ${esc(c.d.obs)}</p>`:''}
   <p style="font-size:12px;line-height:1.55;text-align:justify;margin:12px 0 0">Declaro ter recebido da <b>${esc(E)}</b> a importância líquida de <b>${fm(c.liq)}</b> (${esc(extenso(c.liq))}), referente ao mês de ${esc(nomeMesKey(c.mes))}, conforme discriminado acima.</p>
   <div class="assin" style="page-break-inside:avoid;margin-top:30px"><div>${sa?`<img src="${sa}" alt="" style="max-height:70px;max-width:260px;display:block;margin:0 auto -6px">`:'<div style="height:60px"></div>'}<div class="linha"></div><b>${esc(p.nome.toUpperCase())}</b>${p.cpf?'<br>CPF '+esc(p.cpf):''}${sa?`<br><span style="font-size:10px;color:#64748b">Assinado no celular em ${fd(c.d.assin.em)}${c.d.assin.hora?' às '+c.d.assin.hora:''}</span>`:''}</div><div><div style="height:60px"></div><div class="linha"></div><b>${esc(E)}</b></div></div></div>`}
-async function imprimirCC(pid,mes){const P=pid?[equipe().find(x=>x.id===pid)].filter(Boolean):ccPessoas();const L=P.map(p=>calcCC(p,mes)).filter(c=>pid||c.tp>0||c.td>0||c.pago>0);if(!L.length){aviso('Nada para imprimir neste mês.');return}
+async function compsCCHtml(c){const I=[...(c.vales||[]),...(c.pagos||[])].filter(g=>Array.isArray(g.comp)&&g.comp.length).sort((a,b)=>String(a.data).localeCompare(String(b.data)));if(!I.length)return '';
+  const out=[];for(const g of I){const im=[];for(const id of g.comp){const u=await blobDataURL(id);im.push(u&&u.startsWith('data:image')?`<img src="${u}" alt="">`:u?'<div class="obs">(comprovante em PDF – não cabe na impressão; envie o arquivo separado)</div>':'<div class="obs">(imagem indisponível)</div>')}
+    out.push(`<div class="rt-comp"><div class="rt-ct"><b>📎 ${ehVale(g)?'Vale / adiantamento':'Pagamento'}</b> · ${fd(g.data)} · <b>${fm(g.valorTotal)}</b></div>${im.join('')}</div>`)}
+  return `<h2>Comprovantes – ${esc(c.p.nome)}</h2>${out.join('')}`}
+function perguntaImpCC(pid,mes){abrirMenu('🖨️ Imprimir recibo',[['🧾','Só o recibo',`imprimirCC('${pid||''}','${mes}',false)`],['📎','Recibo + comprovantes (vales e pagamento)',`imprimirCC('${pid||''}','${mes}',true)`]])}
+async function imprimirCC(pid,mes,comComp){if(comComp===undefined){perguntaImpCC(pid,mes);return}const P=pid?[equipe().find(x=>x.id===pid)].filter(Boolean):ccPessoas();const L=P.map(p=>calcCC(p,mes)).filter(c=>pid||c.tp>0||c.td>0||c.pago>0);if(!L.length){aviso('Nada para imprimir neste mês.');return}
   const partes=[];
   if(!pid&&L.length>1){const E=(db.config.empresa||'').toUpperCase(),t=k=>r2(soma(L,c=>+c[k]||0)),ap=r2(soma(L,c=>Math.max(0,c.saldo)));
     const fa=c=>r2(soma(c.desc.filter(x=>x.t==='Faltas'),x=>x.v)),va=c=>r2(soma(c.desc.filter(x=>x.vale),x=>x.v)),ou=c=>r2(c.td-fa(c)-va(c)),T=f=>r2(soma(L,f)),temOu=T(ou)>0.005;
@@ -3169,7 +3174,8 @@ async function imprimirCC(pid,mes){const P=pid?[equipe().find(x=>x.id===pid)].fi
     <table style="font-size:11px"><thead><tr><th>Nome</th><th class="r">Proventos</th><th class="r">Faltas</th><th class="r">Vales</th>${temOu?'<th class="r">Outros</th>':''}<th class="r">Líquido</th></tr></thead><tbody>
     ${L.map(c=>`<tr><td><b>${esc(c.p.nome)}</b><br><small>${esc([c.p.funcao,c.tipo==='salario'?'Mensal':c.tipo==='empreitada'?'Empreitada':'Diária'].filter(Boolean).join(' · '))}${c.faltas?' · '+fq(c.faltas)+' falta(s)':''}</small></td><td class="r">${fm(c.tp)}</td><td class="r">${fa(c)?fm(fa(c)):'—'}</td><td class="r">${va(c)?fm(va(c)):'—'}</td>${temOu?`<td class="r">${ou(c)>0.005?fm(ou(c)):'—'}</td>`:''}<td class="r"><b>${fm(c.liq)}</b>${c.pago>0.005?'<br><small>pago '+fm(c.pago)+'</small>':''}</td></tr>`).join('')}
     </tbody><tfoot><tr><td>TOTAL</td><td class="r">${fm(t('tp'))}</td><td class="r">${fm(T(fa))}</td><td class="r">${fm(T(va))}</td>${temOu?`<td class="r">${fm(T(ou))}</td>`:''}<td class="r">${fm(t('liq'))}</td></tr></tfoot></table></div>`)}
-  for(const c of L)partes.push(await htmlCC(c));
+  if(comComp)toast('Preparando o recibo com os comprovantes…');
+  for(const c of L)partes.push(await htmlCC(c)+(comComp?await compsCCHtml(c):''));
   const h=partes.join('<div class="pk-quebra"></div>'),um=L.length===1?L[0]:null;
   abrirImpressao('Recibo '+nomeMesKey(mes)+(um?' - '+um.p.nome:''),h,false,um?zapDaPessoa(um.p.nome,`Olá ${um.p.nome.split(' ')[0]}! Segue seu recibo de pagamento de ${nomeMesKey(mes)}. Líquido: ${fm(um.liq)}.`):null)}
 
