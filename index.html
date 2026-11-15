@@ -4380,7 +4380,7 @@ async function receberMudanca(inp){const fs=[...inp.files];inp.value='';if(!fs.l
   try{const entradas=[];for(const f of fs){const L=await ZIPX.ler(f);entradas.push(...L)}
     const dj=entradas.find(x=>x.nome==='dados.json');let dados=null;if(dj){dados=JSON.parse(ZIPX.td.decode(dj.dados));if(dados.tipo!=='mudanca-controle-obras-prime')throw new Error('Este arquivo não é uma mudança do Controle de Obras.')}
     const arqs=entradas.filter(x=>x.nome.startsWith('arquivos/'));
-    if(dados&&!await confirmar('🚚 Receber mudança',`Vai trazer ${Object.keys(dados.docs).length} registros e ${arqs.length} de ${dados.arquivos.length} arquivos para cá. Os dados atuais deste programa serão substituídos pelos da versão antiga. Continuar?`,'Receber',true))return;
+    if(dados&&!await confirmar('🚚 Receber mudança',`Vai trazer ${Object.keys(dados.docs).length} registros e ${dados.incremental?arqs.length+' arquivo(s) novo(s) (os antigos já estão aqui)':arqs.length+' de '+dados.arquivos.length+' arquivos'} para cá. Os dados atuais deste programa serão substituídos pelos da versão antiga. Continuar?`,'Receber',true))return;
     document.body.appendChild(st);const sb=window.ctaSb,emp=E.id;
     let tipos={};if(dados)dados.arquivos.forEach(a=>tipos[a.id]=a.tipo);entradas.filter(x=>x.nome==='tipos.json').forEach(x=>{try{Object.assign(tipos,JSON.parse(ZIPX.td.decode(x.dados)))}catch(e){}});
     let ok=0,falha=0;for(let i=0;i<arqs.length;i++){const a=arqs[i],id=a.nome.slice(9);txt(`Enviando arquivos ${i+1} de ${arqs.length}…`);
