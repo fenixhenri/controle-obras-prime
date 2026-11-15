@@ -507,7 +507,7 @@ details.cf-sec{border:1px solid var(--linha);border-radius:12px;margin-bottom:10
     <div class="fg" id="pgMesBox"><label>Referente ao mês</label><input type="month" id="pgMes" onchange="pagMesManual=true;pagUI()"></div>
     <div class="fg-row"><div class="fg"><label id="pgTotalLb">Valor (R$) *</label><input id="pgTotal" inputmode="numeric" placeholder="0,00" oninput="maskMoeda(this);pagUI()"></div>
       <div class="fg"><label>Situação</label><select id="pgSit"><option value="pago">✅ Pago</option><option value="pendente">⏳ Pendente (a pagar)</option></select></div></div>
-    <div class="fg" id="pgAbaterBox" hidden><label>Descontar este vale em</label><select id="pgAbater"></select><div class="obs" style="margin-top:4px">Escolha o pagamento (mês) de onde o vale vai ser abatido. Deixe em "próximo pagamento" para descontar automaticamente no próximo que você lançar.</div></div>
+    <div class="fg" id="pgAbaterBox" hidden><label>Descontar este vale em</label><select id="pgAbater" onchange="const g=pagamentoPorId(this.value);if(g&&g.tipoPag!=='empreitada'){$('pgMes').value=refDoGasto(g);pagMesManual=true}"></select><div class="obs" style="margin-top:4px">Escolha o pagamento (mês) de onde o vale vai ser abatido. Deixe em "próximo pagamento" para descontar automaticamente no próximo que você lançar.</div></div>
     <div class="pg-vale" id="pgValeBox" hidden><div id="pgValeTxt"></div><label class="check" id="pgValeChk" style="margin:6px 0 0"><input type="checkbox" id="pgDescVale" checked onchange="pagUI()"> Descontar os vales neste pagamento</label></div>
     <div class="fg"><label>Descrição</label><input id="pgDesc" oninput="pagDescManual=true"></div>
     <div class="fg-row"><div class="fg"><label>Categoria</label><select id="pgCat"></select></div><div class="fg"><label>Forma de pagamento</label><select id="pgForma"></select></div></div>
@@ -2864,6 +2864,7 @@ function ccMes(){return db.ui.ccMes||(+hoje().slice(8)>=25?hoje().slice(0,7):mes
 function mesAnteriorKey(){const h=hoje(),[y,m]=h.split('-').map(Number);return m===1?(y-1)+'-12':y+'-'+String(m-1).padStart(2,'0')}
 function ccDados(pid,mes,criar){const C=db.config;if(!C.contracheques||typeof C.contracheques!=='object')C.contracheques={};const P=C.contracheques[pid]||(criar?(C.contracheques[pid]={}):null);if(!P)return {};return P[mes]||(criar?(P[mes]={}):{})}
 function ccPessoas(){return equipe().filter(p=>p.ativo!==false&&['salario','diaria','empreitada'].includes(tipoPessoa(p))&&(p.tipoPag||tipoPessoa(p))).sort((a,b)=>a.nome.localeCompare(b.nome))}
+function refVale(g){if(g.descontadoEm){const pg=pagamentoPorId(g.descontadoEm);if(pg&&pg.tipoPag!=='empreitada')return refDoGasto(pg)}return refDoGasto(g)}
 function calcCC(p,mes){const d=ccDados(p.id,mes),n=normTxt(p.nome),tipo=tipoPessoa(p),base=+p.diaria||0,PM=presMes(mes).filter(({x})=>normTxt(x.p)===n);
   const faltasAuto=soma(PM,({x})=>faltaPres(x)),dias=soma(PM,({x})=>+x.f||0),faltas=d.faltas!=null&&d.faltas!==''?+d.faltas:faltasAuto;
   const prov=[],desc=[];
@@ -2877,7 +2878,7 @@ function calcCC(p,mes){const d=ccDados(p.id,mes),n=normTxt(p.nome),tipo=tipoPess
   if(+d.he>0)prov.push({t:'Outras horas extras',ref:d.heQt||'',v:+d.he});
   if(+d.outP>0)prov.push({t:d.outPTxt||'Outros proventos',ref:'',v:+d.outP});
   if(+d.inss>0)desc.push({t:'INSS',ref:'',v:+d.inss});
-  const G=gastosDaPessoa(p),V=G.filter(g=>ehVale(g)&&!g.pendente&&refDoGasto(g)===mes).sort((a,b)=>String(a.data).localeCompare(String(b.data)));
+  const G=gastosDaPessoa(p),V=G.filter(g=>ehVale(g)&&!g.pendente&&refVale(g)===mes).sort((a,b)=>String(a.data).localeCompare(String(b.data)));
   V.forEach(g=>desc.push({t:'Vale / adiantamento',ref:fd(g.data),v:+g.valorTotal||0,vale:1}));
   if(+d.outD>0)desc.push({t:d.outDTxt||'Outros descontos',ref:'',v:+d.outD});
   const tp=r2(soma(prov,x=>x.v)),td=r2(soma(desc,x=>x.v)),liq=r2(tp-td),semVale=r2(tp-soma(desc.filter(x=>!x.vale),x=>x.v));
