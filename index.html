@@ -164,6 +164,7 @@ main{max-width:1200px;margin:0 auto;padding-block:14px 110px;padding-left:max(16
 .grid2>.card{margin-bottom:0}
 .grid2>*{min-width:0}
 .orc-et td{background:#eef2ff}
+.tabela td.cr-pl{background:#eff6ff}
 .oi-res{max-height:240px;overflow:auto;margin:-4px 0 10px}
 .oi-r{display:block;width:100%;text-align:left;border:1px solid #e2e8f0;background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:.82rem;color:#0f172a;cursor:pointer}
 .oi-r div{color:#475569;margin-top:2px}
@@ -2796,6 +2797,47 @@ function imprimirOrcS(oid){const o=db.obras.find(x=>x.id===oid);if(!o)return;con
     return `<tr><td>${N[ix]}</td><td>${esc(l.cod||'')}</td><td>${esc(l.cod?(l.fonte||'SINAPI'):'Próprio')}</td><td>${esc(l.desc)}</td><td class="c">${esc(l.un||'')}</td><td class="r">${fq(+l.qtd||0)}</td><td class="r">${fm(+l.custo||0)}</td><td class="r">${fm(x.pu)}</td><td class="r">${fm(x.tot)}</td></tr>`}).join('')}
   </tbody><tfoot><tr><td colspan="8">TOTAL COM BDI</td><td class="r">${fm(C.total)}</td></tr></tfoot></table>${blocoABC(C,true)}`;
   abrirImpressao('Orçamento '+o.nome,h,true)}
+/* ================= GANTT + FÍSICO-FINANCEIRO ================= */
+const MES_C=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+function mesesEntre(a,b){const M=[];if(!a||!b)return M;let p=pd(a),d=new Date(p.y,p.m,1);const q=pd(b),f=new Date(q.y,q.m,1);while(d<=f&&M.length<60){M.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));d=new Date(d.getFullYear(),d.getMonth()+1,1)}return M}
+function fimMes(m){const p=pd(m+'-01');return m+'-'+String(new Date(p.y,p.m+1,0).getDate()).padStart(2,'0')}
+function diasEntre(a,b){return Math.round((tsDia(b)-tsDia(a))/864e5)+1}
+function fisFin(o){const L=cronoItens(o).filter(x=>x.ini&&x.fim&&x.fim>=x.ini);if(!L.length)return null;
+  let a=L[0].ini,b=L[0].fim;L.forEach(x=>{if(x.ini<a)a=x.ini;if(x.fim>b)b=x.fim});
+  const bs=bolOrd(o);bs.forEach(x=>{const d=x.fim||x.inicio;if(d&&d>b)b=d;if(d&&d<a)a=d});
+  const M=mesesEntre(a,b),V=soma(L,x=>x.v)||1;
+  const linhas=L.map(x=>{const tot=diasEntre(x.ini,x.fim);return{x,m:M.map(m=>{const i=x.ini>m+'-01'?x.ini:m+'-01',f=x.fim<fimMes(m)?x.fim:fimMes(m);return f>=i?r2(x.v*diasEntre(i,f)/tot):0})}});
+  const prev=M.map((m,k)=>r2(soma(linhas,l=>l.m[k]))),real=M.map(m=>r2(soma(bs.filter(b=>String(b.fim||b.inicio||'').slice(0,7)===m),b=>soma(o.itens,it=>(+b.qtds[it.id]||0)*it.preco))));
+  let ap=0,ar=0;const acP=prev.map(v=>(ap+=v)/V),acR=real.map(v=>(ar+=v)/V);return{L,M,V,linhas,prev,real,acP,acR,ini:a,fim:b}}
+function svgGantt(o,larg){const F=fisFin(o);if(!F)return '';const W=larg||900,lab=W<500?0:220,R=10,top=22,rh=W<500?34:24,H=top+F.L.length*rh+8,t0=tsDia(F.M[0]+'-01'),t1=tsDia(fimMes(F.M[F.M.length-1]))+864e5;
+  const X=d=>lab+6+(W-lab-6-R)*Math.max(0,Math.min(1,(tsDia(d)-t0)/(t1-t0))),hj=hoje();
+  const mx=F.M.map(m=>`<line x1="${X(m+'-01')}" x2="${X(m+'-01')}" y1="${top-4}" y2="${H}" stroke="#e2e8f0"/><text x="${(X(m+'-01')+X(fimMes(m)))/2}" y="13" font-size="10" text-anchor="middle" fill="#64748b">${MES_C[+m.slice(5)-1]}/${m.slice(2,4)}</text>`).join('');
+  const rows=F.L.map((x,i)=>{const y=top+i*rh,x1=X(x.ini),x2=Math.max(x1+3,X(addDias(x.fim,1))),bh=W<500?10:12,by=W<500?y+18:y+5,cor=x.st==='atr'?'#dc2626':x.st==='ok'?'#16a34a':'#2563eb';
+    const nome=esc(x.it.servico.length>(W<500?60:34)?x.it.servico.slice(0,W<500?58:32)+'…':x.it.servico);
+    return `${i%2?`<rect x="0" y="${y}" width="${W}" height="${rh}" fill="#f8fafc"/>`:''}${W<500?`<text x="4" y="${y+12}" font-size="10" fill="#334155">${i+1}. ${nome}</text>`:`<text x="4" y="${y+15}" font-size="10.5" fill="#334155">${i+1}. ${nome}</text>`}
+      <rect x="${x1}" y="${by}" width="${x2-x1}" height="${bh}" rx="3" fill="#dbeafe" stroke="#93c5fd"/><rect x="${x1}" y="${by}" width="${(x2-x1)*x.ex}" height="${bh}" rx="3" fill="${cor}"/>`}).join('');
+  const th=hj>=F.M[0]+'-01'&&hj<=fimMes(F.M[F.M.length-1])?`<line x1="${X(hj)}" x2="${X(hj)}" y1="${top-4}" y2="${H}" stroke="#f59e0b" stroke-width="2"/><text x="${X(hj)}" y="${H+12}" font-size="10" text-anchor="middle" fill="#b45309">hoje</text>`:'';
+  return `<svg viewBox="0 0 ${W} ${H+16}" width="100%" style="max-width:${W}px;display:block;font-family:system-ui,sans-serif">${rows}${mx}${th}</svg>`}
+function blocoGantt(o){const F=fisFin(o);if(!F)return '';const w=Math.min(900,Math.max(360,(window.innerWidth||900)-60));
+  return `<section class="card"><h2>📊 Gráfico de Gantt</h2><p class="obs" style="margin:-4px 0 10px">Barra clara: período previsto de cada serviço. Parte colorida: quanto já foi medido (azul no prazo, verde concluído, vermelho atrasado). Linha laranja: hoje.</p><div style="overflow-x:auto">${svgGantt(o,w)}</div></section>`}
+function tabFisFin(F,print){const p=v=>fp(v*100),cab=F.M.map(m=>`<th class="r">${MES_C[+m.slice(5)-1]}/${m.slice(2,4)}</th>`).join('');
+  return `<table><thead><tr><th>Serviço</th><th class="r">Valor</th>${cab}</tr></thead><tbody>
+    ${F.linhas.map((l,i)=>`<tr><td${print?'':' style="min-width:160px"'}>${i+1}. ${esc(l.x.it.servico)}</td><td class="r">${fm(l.x.v)}</td>${l.m.map(v=>`<td class="r${v?' cr-pl':''}">${v?fm(v):''}</td>`).join('')}</tr>`).join('')}
+    </tbody><tfoot>
+    <tr><td>Previsto no mês</td><td class="r">${fm(F.V)}</td>${F.prev.map(v=>`<td class="r">${fm(v)}</td>`).join('')}</tr>
+    <tr><td>% previsto acumulado</td><td></td>${F.acP.map(v=>`<td class="r">${p(v)}</td>`).join('')}</tr>
+    <tr><td>Medido no mês</td><td></td>${F.real.map(v=>`<td class="r">${v?fm(v):'–'}</td>`).join('')}</tr>
+    <tr><td>% medido acumulado</td><td></td>${F.acR.map((v,k)=>`<td class="r">${F.M[k]<=hoje().slice(0,7)?p(v):''}</td>`).join('')}</tr>
+    </tfoot></table>`}
+function blocoFisFin(o){const F=fisFin(o);if(!F)return '';
+  return `<section class="card"><div class="card-head"><h2>💰 Cronograma físico-financeiro</h2><div class="obra-btns"><button class="btn btn-azul btn-sm" onclick="imprimirFisFin('${o.id}')">🖨️ Imprimir</button></div></div>
+    <p class="obs" style="margin:-4px 0 10px">O valor de cada serviço é distribuído pelos dias do seu período. Embaixo, o previsto e o medido de cada mês, e o acumulado.</p><div class="tabela">${tabFisFin(F,false)}</div></section>`}
+function imprimirFisFin(oid){const o=db.obras.find(x=>x.id===oid);if(!o)return;const F=fisFin(o);if(!F)return;const D=dadosBol(o);
+  const h=`<div class="top"><div><h1>CRONOGRAMA FÍSICO-FINANCEIRO – ${esc(String(D.obra||o.nome).toUpperCase())}</h1><div class="sub">${esc(db.config.empresa)}${db.config.cnpj?' · CNPJ '+esc(db.config.cnpj):''}${D.contratante?' · Contratante: '+esc(D.contratante):''}${D.numContrato?' · Contrato '+esc(D.numContrato):''} · ${fd(hoje())}</div></div></div>
+  <div class="box">${kp('Período',fd(F.ini)+' a '+fd(F.fim))}${kp('Valor total',fm(F.V))}${kp('Previsto até hoje',fp((F.acP[F.M.findIndex(m=>m>=hoje().slice(0,7))]??F.acP[F.acP.length-1])*100))}${kp('Medido até hoje',fp(F.acR[F.acR.length-1]*100))}</div>
+  <h2>Gráfico de Gantt</h2>${svgGantt(o,1000)}<h2>Desembolso mensal</h2>${tabFisFin(F,true)}
+  <div class="assin"><div><div class="linha"></div><b>${esc((db.config.empresa||'').toUpperCase())}</b>${db.config.cnpj?'<br>CNPJ '+esc(db.config.cnpj):''}<br>Responsável</div><div><div class="linha"></div><b>${esc((D.contratante||'').toUpperCase())}</b>${D.cnpjContratante?'<br>CNPJ '+esc(D.cnpjContratante):''}<br>Fiscalização</div></div>`;
+  abrirImpressao('Físico-financeiro - '+o.nome,h,true)}
 function renderCrono(o,box){
   if(!o.itens.length){box.innerHTML=`<section class="card"><h2>🗓️ Cronograma</h2><div class="vazio">Esta obra ainda não tem a planilha de serviços. Cadastre os itens na aba <b>📏 Boletim</b> (ou importe a planilha) para montar o cronograma.</div></section>`;return}
   const C=cronoObra(o),L=cronoItens(o),T=cronoTotal(L),H=hoje(),dif=T.esp!=null?(T.ex-T.esp)*100:null;
@@ -2815,7 +2857,7 @@ function renderCrono(o,box){
     <div class="cr-lista">${ord.map(x=>`<div class="cr-it"><div class="cr-top"><b>${esc(x.it.servico)}</b>${crChip(x.st)}</div>
       <div class="cr-bar"><div class="cr-fill ${CR_ST[x.st]?CR_ST[x.st][1]:''}" style="width:${(x.ex*100).toFixed(1)}%"></div>${x.esp!=null&&x.st!=='ok'?`<div class="cr-mark" style="left:${(x.esp*100).toFixed(1)}%" title="previsto hoje"></div>`:''}</div>
       <div class="obs">Executado <b>${fp(x.ex*100)}</b>${x.esp!=null&&x.st!=='ok'?` · previsto hoje ${fp(x.esp*100)}`:''}${x.proprio?` · 🗓️ ${fd(x.ini)} a ${fd(x.fim)}`:''}</div></div>`).join('')}</div>
-    <p class="nota">O executado vem das quantidades lançadas nos boletins de medição (📏 Boletim). O previsto é calculado pela data: se metade do prazo já passou, o previsto é 50%. Em <b>✏️ Datas por item</b> você pode dar um período próprio para cada serviço (ex.: pintura só no final); o que ficar em branco usa o prazo da obra. O total é ponderado pelo valor de cada serviço. A linha amarela na barra marca onde o serviço deveria estar hoje.</p></section>`}
+    <p class="nota">O executado vem das quantidades lançadas nos boletins de medição (📏 Boletim). O previsto é calculado pela data: se metade do prazo já passou, o previsto é 50%. Em <b>✏️ Datas por item</b> você pode dar um período próprio para cada serviço (ex.: pintura só no final); o que ficar em branco usa o prazo da obra. O total é ponderado pelo valor de cada serviço. A linha amarela na barra marca onde o serviço deveria estar hoje.</p></section>${typeof blocoGantt==='function'?blocoGantt(o)+blocoFisFin(o):''}`}
 function abrirCronoItens(){const o=obraAtual();if(!o)return;const C=cronoObra(o);
   $('crItens').innerHTML=o.itens.map(it=>{const w=C.it[it.id]||{};return `<div class="cr-ed" data-id="${it.id}"><b>${esc(it.servico)}</b><div class="fg-row"><div class="fg"><label>Início</label><input type="date" class="cr-i" value="${w.i||''}"></div><div class="fg"><label>Fim</label><input type="date" class="cr-f" value="${w.f||''}"></div></div></div>`}).join('');
   $('crPad').textContent=C.ini&&C.fim?`Em branco = prazo da obra (${fd(C.ini)} a ${fd(C.fim)}).`:'Em branco = prazo da obra.';abrirModal('modalCrono')}
