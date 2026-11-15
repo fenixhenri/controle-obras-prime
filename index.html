@@ -507,6 +507,7 @@ details.cf-sec{border:1px solid var(--linha);border-radius:12px;margin-bottom:10
     <div class="fg" id="pgMesBox"><label>Referente ao mês</label><input type="month" id="pgMes" onchange="pagMesManual=true;pagUI()"></div>
     <div class="fg-row"><div class="fg"><label id="pgTotalLb">Valor (R$) *</label><input id="pgTotal" inputmode="numeric" placeholder="0,00" oninput="maskMoeda(this);pagUI()"></div>
       <div class="fg"><label>Situação</label><select id="pgSit"><option value="pago">✅ Pago</option><option value="pendente">⏳ Pendente (a pagar)</option></select></div></div>
+    <div class="fg" id="pgAbaterBox" hidden><label>Descontar este vale em</label><select id="pgAbater"></select><div class="obs" style="margin-top:4px">Escolha o pagamento (mês) de onde o vale vai ser abatido. Deixe em "próximo pagamento" para descontar automaticamente no próximo que você lançar.</div></div>
     <div class="pg-vale" id="pgValeBox" hidden><div id="pgValeTxt"></div><label class="check" id="pgValeChk" style="margin:6px 0 0"><input type="checkbox" id="pgDescVale" checked onchange="pagUI()"> Descontar os vales neste pagamento</label></div>
     <div class="fg"><label>Descrição</label><input id="pgDesc" oninput="pagDescManual=true"></div>
     <div class="fg-row"><div class="fg"><label>Categoria</label><select id="pgCat"></select></div><div class="fg"><label>Forma de pagamento</label><select id="pgForma"></select></div></div>
@@ -1993,8 +1994,8 @@ function renderPessoa(nome){const p=achaPessoa(nome),L=pagamentosEq(nome),T=soma
 function setPendGasto(oid,gid,pend){const o=db.obras.find(x=>x.id===oid),g=o&&o.gastos.find(x=>x.id===gid);if(!g||!!g.pendente===pend)return;togglePendGasto(oid,gid)}
 async function excluirPagamento(oid,gid){const o=db.obras.find(x=>x.id===oid),g=o&&o.gastos.find(x=>x.id===gid);if(!g)return;
   const vs=valesDescontadosEm(gid);
-  if(!await confirmar('Excluir pagamento',`Excluir "${g.descricao}" de ${fm(g.valorTotal)} (${fd(g.data)}, ${o.nome})? Ele também sai dos gastos da obra.${vs.length?` Os ${vs.length} vale(s) descontados nele voltam a ficar em aberto.`:''}${g.tipoPag==='vale'&&g.descontadoEm?' Atenção: este vale já foi descontado em um pagamento.':''}`,'Excluir',true))return;
-  paraLixeira('gasto',`${g.descricao} – ${fm(g.valorTotal)} (${fd(g.data)})`,g,o);vs.forEach(v=>delete v.descontadoEm);o.gastos=o.gastos.filter(x=>x.id!==gid);salvar();render();toast('🗑️ Pagamento movido para a lixeira')}
+  if(!await confirmar('Excluir pagamento',`Excluir "${g.descricao}" de ${fm(g.valorTotal)} (${fd(g.data)}, ${o.nome})? Ele também sai dos gastos da obra.${vs.length?` Os ${vs.length} vale(s) descontados nele voltam a ficar em aberto.`:''}${g.tipoPag==='vale'&&g.descontadoEm?' O desconto dele sai do pagamento onde estava abatido.':''}`,'Excluir',true))return;
+  if(ehVale(g)&&g.descontadoEm)tirarValeDe(g);paraLixeira('gasto',`${g.descricao} – ${fm(g.valorTotal)} (${fd(g.data)})`,g,o);vs.forEach(v=>delete v.descontadoEm);o.gastos=o.gastos.filter(x=>x.id!==gid);salvar();render();toast('🗑️ Pagamento movido para a lixeira')}
 function tipoDoGasto(g,p){if(g.tipoPag)return g.tipoPag;if(normTxt(g.unidade).startsWith('dia'))return 'diaria';if(g.refMes)return 'salario';return /empreit|empelheit/i.test(g.descricao)?'empreitada':/^vale|adiant/i.test(normTxt(g.descricao))?'vale':tipoPessoa(p)}
 function editarPagamento(oid,gid){const o=db.obras.find(x=>x.id===oid),g=o&&o.gastos.find(x=>x.id===gid);if(!g)return;
   let p=achaPessoa(g.pessoa);if(!p){p={id:novoId('pes'),nome:g.pessoa,funcao:'',diaria:0,tel:'',pix:''};equipe().push(p)}
@@ -2002,7 +2003,7 @@ function editarPagamento(oid,gid){const o=db.obras.find(x=>x.id===oid),g=o&&o.ga
   $('tPag').textContent='✏️ Editar pagamento – '+p.nome;$('pgObra').value=oid;$('pgData').value=g.data;$('pgTipo').value=t;$('pgMes').value=g.refMes||String(g.data).slice(0,7);
   $('pgDias').value=t==='diaria'?String(g.qtd).replace('.',','):'';$('pgUnit').value=g.valorUnit?ms(g.valorUnit):'';$('pgTotal').value=ms(g.bruto||g.valorTotal);$('pgDesc').value=g.descricao;
   if(![...$('pgCat').options].some(x=>x.value===g.categoria))$('pgCat').insertAdjacentHTML('beforeend',`<option>${esc(g.categoria)}</option>`);$('pgCat').value=g.categoria;
-  $('pgForma').value=g.pagamento||'';$('pgSit').value=g.pendente?'pendente':'pago';pagUI()}
+  $('pgForma').value=g.pagamento||'';$('pgSit').value=g.pendente?'pendente':'pago';pagAbaterIni=g.descontadoEm||'';$('pgAbater').innerHTML='';pagUI()}
 async function togglePendGasto(oid,gid){const o=db.obras.find(x=>x.id===oid),g=o&&o.gastos.find(x=>x.id===gid);if(!g)return;
   if(g.pendente){g.pendente=false;g.pagoEm=hoje();g.pagoTs=new Date().toISOString();toast('✅ Marcado como pago')}else{g.pendente=true;delete g.pagoEm;delete g.pagoTs;toast('⏳ Marcado como pendente')}salvar();render()}
 /* previsão do mês + lançar pagamento */
@@ -2057,7 +2058,7 @@ function abrirPagamento(id,opt){opt=opt||{};const p=equipe().find(x=>x.id===id);
   if(t==='salario'){const ja=soma(gastosDaPessoa(p).filter(g=>!ehVale(g)&&refDoGasto(g)===mes),g=>+g.bruto||g.valorTotal);const b=Math.max(0,(+p.diaria||0)-ja);if(b)$('pgTotal').value=ms(b)}
   const cats=db.config.categorias,uc=(db.ui.ultCatPag||{})[id];
   $('pgCat').innerHTML=cats.map(c=>`<option>${esc(c)}</option>`).join('');$('pgCat').value=uc&&cats.includes(uc)?uc:(cats.includes('Mão de Obra')?'Mão de Obra':(cats.find(c=>CAT_MO.test(c))||cats[0]));
-  $('pgForma').innerHTML=PAGAMENTOS.map(x=>`<option value="${x}">${x||'—'}</option>`).join('');$('pgForma').value=db.ui.ultPag||'';$('pgSit').value='pago';$('pgDescVale').checked=true;
+  $('pgForma').innerHTML=PAGAMENTOS.map(x=>`<option value="${x}">${x||'—'}</option>`).join('');$('pgForma').value=db.ui.ultPag||'';$('pgSit').value='pago';$('pgDescVale').checked=true;pagAbaterIni='';$('pgAbater').innerHTML='';
   pagUI();abrirModal('modalPag')}
 function pagUI(){if($('pgTipo').value==='vale'&&!pagEdit&&$('pgData').value&&!pagMesManual)$('pgMes').value=$('pgData').value.slice(0,7);const t=$('pgTipo').value,p=equipe().find(x=>x.id===pagPessoa)||{nome:''};
   $('pgDiasBox').style.display=t==='diaria'?'':'none';$('pgMesBox').style.display=t==='empreitada'?'none':'';
@@ -2067,12 +2068,25 @@ function pagUI(){if($('pgTipo').value==='vale'&&!pagEdit&&$('pgData').value&&!pa
     $('pgDesc').value=t==='diaria'?`${n||'?'} diária(s) – ${p.nome}`:t==='salario'?`Salário ${m?nomeMesKey(m):''} – ${p.nome}`:t==='vale'?`Vale / adiantamento – ${p.nome}`:`Empreitada – ${p.nome}`}
   // vales
   const box=$('pgValeBox'),bruto=parseMoeda($('pgTotal').value);
-  if(t==='vale'){box.hidden=true;return}
+  $('pgAbaterBox').hidden=t!=='vale';
+  if(t==='vale'){box.hidden=true;abaterUI(p);return}
   if(pagEdit){if(pagEdit.desconto){box.hidden=false;$('pgValeChk').style.display='none';$('pgValeTxt').innerHTML=`🎟️ Vales já descontados neste pagamento: <b>${fm(pagEdit.desconto)}</b><br>Líquido a pagar: <b>${fm(Math.max(0,bruto-pagEdit.desconto))}</b>`}else box.hidden=true;return}
   const V=valesAbertos(p),vt=soma(V,g=>g.valorTotal);
   if(!vt){box.hidden=true;return}
   box.hidden=false;$('pgValeChk').style.display='';const d=$('pgDescVale').checked?Math.min(vt,bruto||vt):0;
   $('pgValeTxt').innerHTML=`🎟️ Vales em aberto: <b>${fm(vt)}</b> <span class="obs">(${V.map(g=>fd(g.data)+' '+fm(g.valorTotal)).join(' · ')})</span>${$('pgDescVale').checked?`<br>Valor bruto ${fm(bruto)} − vales ${fm(d)} = <b>líquido a pagar ${fm(Math.max(0,bruto-d))}</b>`:''}`}
+let pagAbaterIni='';
+function abaterUI(p){const sel=$('pgAbater'),cur=sel.options.length?sel.value:pagAbaterIni,eid=pagEdit&&pagEdit.gid;
+  const L=[];db.obras.forEach(o=>o.gastos.forEach(g=>{if(normTxt(g.pessoa)===normTxt(p.nome)&&!ehVale(g)&&g.id!==eid)L.push(g)}));
+  L.sort((a,b)=>String(b.data).localeCompare(String(a.data)));const V=L.slice(0,20);if(cur&&!V.some(g=>g.id===cur)){const x=L.find(g=>g.id===cur);if(x)V.push(x)}
+  sel.innerHTML='<option value="">⏭️ Próximo pagamento (automático)</option>'+V.map(g=>`<option value="${g.id}">${fd(g.data)}${g.refMes?' · ref. '+nomeMesKey(g.refMes):''} · ${esc(g.descricao)} · a pagar ${fm(g.valorTotal)}${g.pendente?' · ⏳ pendente':''}</option>`).join('');
+  sel.value=V.some(g=>g.id===cur)?cur:''}
+function pagamentoPorId(id){let r=null;db.obras.forEach(o=>o.gastos.forEach(g=>{if(g.id===id)r=g}));return r}
+function aplicarValeEm(v,pid){const pg=pagamentoPorId(pid);if(!pg)return true;
+  if(v.valorTotal>(+pg.valorTotal||0)+0.001){aviso(`O vale (${fm(v.valorTotal)}) é maior que o valor a pagar nesse pagamento (${fm(pg.valorTotal)}). Escolha outro pagamento.`);return false}
+  pg.bruto=+pg.bruto||pg.valorTotal;pg.desconto=r2((+pg.desconto||0)+v.valorTotal);pg.valorTotal=r2(pg.bruto-pg.desconto);v.descontadoEm=pid;return true}
+function tirarValeDe(v){const pg=pagamentoPorId(v.descontadoEm);delete v.descontadoEm;if(!pg||!pg.desconto)return;
+  pg.desconto=r2(pg.desconto-v.valorTotal);if(pg.desconto<=0.001){pg.valorTotal=+pg.bruto||pg.valorTotal;delete pg.desconto;delete pg.bruto}else pg.valorTotal=r2(pg.bruto-pg.desconto)}
 function salvarPagamento(){const p=equipe().find(x=>x.id===pagPessoa);const o=db.obras.find(x=>x.id===$('pgObra').value);if(!p||!o){aviso('Escolha a obra.');return}
   const t=$('pgTipo').value,bruto=parseMoeda($('pgTotal').value),data=$('pgData').value,dias=parseFloat(($('pgDias').value||'').replace(',','.'))||0;
   if(!data||bruto<=0){aviso('Preencha a data e o valor.');return}
@@ -2088,6 +2102,7 @@ function salvarPagamento(){const p=equipe().find(x=>x.id===pagPessoa);const o=db
       if(pagEdit.desconto&&t!=='vale'){g.bruto=bruto;g.desconto=Math.min(pagEdit.desconto,bruto);g.valorTotal=r2(bruto-g.desconto)}
       if(ga.pendente&&!g.pendente){g.pagoEm=data;g.pagoTs=new Date().toISOString()}
       if(pagEdit.vales&&!g.pendente)db.obras.forEach(ob=>ob.gastos.forEach(v=>{if(pagEdit.vales.includes(v.id)&&!v.descontadoEm)v.descontadoEm=g.id}));
+      if(t==='vale'){delete g.descontadoEm;const ant=ga.descontadoEm,alvo=$('pgAbater').value;if(ant)tirarValeDe(ga);if(alvo&&!aplicarValeEm(g,alvo)){if(ant)aplicarValeEm(ga,ant);return}}
       if(oa===o){Object.keys(ga).forEach(k=>delete ga[k]);Object.assign(ga,g)}else{oa.gastos=oa.gastos.filter(x=>x.id!==ga.id);o.gastos.push(g)}
       pagEdit=null;salvar();fecharModal('modalPag');render();toast('✅ Pagamento atualizado');return}}
   let desc=0;
@@ -2095,9 +2110,10 @@ function salvarPagamento(){const p=equipe().find(x=>x.id===pagPessoa);const o=db
     V.forEach(v=>{if(resto>=v.valorTotal-0.001){v.descontadoEm=g.id;desc+=v.valorTotal;resto-=v.valorTotal}});
     if(desc){g.bruto=bruto;g.desconto=r2(desc);g.valorTotal=r2(bruto-desc)}}
   if(g.valorTotal<=0){g.valorTotal=0}
+  if(t==='vale'&&$('pgAbater').value&&!aplicarValeEm(g,$('pgAbater').value))return;
   o.gastos.push(g);db.ui.ultObraPag=o.id;db.ui.ultPag=g.pagamento;db.ui.ultCatPag={...(db.ui.ultCatPag||{}),[p.id]:g.categoria};
   salvar();fecharModal('modalPag');render();
-  toast(t==='vale'?`🎟️ Vale de ${fm(bruto)} lançado`:(g.pendente?`⏳ ${fm(g.valorTotal)} lançado como pendente em ${o.nome}`:`✅ ${fm(g.valorTotal)} lançado em ${o.nome}`)+(desc?` · vales descontados ${fm(desc)}`:''))}
+  toast(t==='vale'?`🎟️ Vale de ${fm(bruto)} lançado`+(g.descontadoEm?` e descontado no pagamento de ${fd((pagamentoPorId(g.descontadoEm)||{}).data)}`:''):(g.pendente?`⏳ ${fm(g.valorTotal)} lançado como pendente em ${o.nome}`:`✅ ${fm(g.valorTotal)} lançado em ${o.nome}`)+(desc?` · vales descontados ${fm(desc)}`:''))}
 /* ================= PRESENÇA DIÁRIA ================= */
 const DIAS_SEM=['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
 function presDia(data){const m={};db.obras.forEach(o=>(o.presencas||[]).forEach(x=>{if(x.d===data)m[normTxt(x.p)]={o,x}}));return m}
