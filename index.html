@@ -1356,7 +1356,7 @@ function setSync(){const c=$('syncChip'),t=$('syncTxt');if(!c)return;c.className
   t.textContent=semAcesso?'Sem conexão':erroSync?'Erro ao salvar':pendentes?'Salvando…':'Salvo na nuvem'}
 function enfileirar(path,fn){pendentes++;setSync();
   filas[path]=(filas[path]||Promise.resolve()).then(fn).then(()=>{erroSync=false},e=>{erroSync=true;
-    const msg=e&&e.code==='quota_exceeded'?'Espaço de armazenamento cheio.':e&&e.code==='invalid_argument'?'Você não tem permissão para alterar estes dados.':'Não foi possível salvar. Verifique a internet.';
+    const msg=e&&e.code==='bloqueado'?'Modo consulta: assine o CTA para voltar a lançar.':e&&e.code==='quota_exceeded'?'Espaço de armazenamento cheio.':e&&e.code==='invalid_argument'?'Você não tem permissão para alterar estes dados.':'Não foi possível salvar. Verifique a internet.';
     toast('⚠️ '+msg)}).finally(()=>{pendentes--;setSync()})}
 function cfgDados(){const c=db.config;return{empresa:c.empresa,categorias:c.categorias,faixa:c.faixa,cnpj:c.cnpj||'',banco:c.banco||'',conta:c.conta||'',pix:c.pix||'',bolEmpresa:c.bolEmpresa||'',equipe:Array.isArray(c.equipe)?c.equipe:[],backupAuto:c.backupAuto===true,ultimoBackup:c.ultimoBackup||'',pinHash:c.pinHash||'',pinSalt:c.pinSalt||'',pinEncHash:c.pinEncHash||'',pinEncSalt:c.pinEncSalt||'',encarregados:Array.isArray(c.encarregados)?c.encarregados:[],
   despFixas:Array.isArray(c.despFixas)?c.despFixas:[],despPag:c.despPag&&typeof c.despPag==='object'?c.despPag:{},retiradas:Array.isArray(c.retiradas)?c.retiradas:[],proLabore:+c.proLabore||0,diaProLabore:+c.diaProLabore||5,
@@ -4198,8 +4198,8 @@ function renderEncarregado(){if(!['material','diario'].includes(db.ui.encAba))db
   if(a==='presenca'){renderPresenca();const el=document.createElement('div');el.innerHTML=$('app').innerHTML.replace(abasEquipe(),'');[...el.querySelectorAll('section.card')].forEach(sc=>{if(/Presença do mês/.test(sc.querySelector('h2')?.textContent||''))sc.remove()});el.querySelectorAll('.pr-mesbox .btn').forEach(b=>b.remove());$('app').innerHTML=sair+tabs+el.innerHTML;return}
   if(a==='material'){db.ui.prodModo='obra';renderProdutividade();const el=document.createElement('div');el.innerHTML=$('app').innerHTML;
     const keep=[...el.querySelectorAll('section.card')].filter(s=>/Produtividade –|Material consumido|Lista de compras/.test(s.querySelector('h2')?.textContent||''));
-    keep.forEach(s=>s.querySelectorAll('.kpi-grid').forEach(k=>k.remove()));$('app').innerHTML=sair+tabs+keep.map(s=>s.outerHTML).join('');return}
-  const V=obrasVisiveis(),o=V.find(x=>x.id===db.ui.encObra)||V.find(x=>x.status!=='Concluída')||V[0];if(!o){$('app').innerHTML=sair+tabs;return}db.ui.obraId=o.id;
+    keep.forEach(s=>s.querySelectorAll('.kpi-grid').forEach(k=>k.remove()));$('app').innerHTML=sair+tabs+(keep.length&&obrasVisiveis().length?keep.map(s=>s.outerHTML).join(''):`<section class="card"><div class="vazio">🏗️ Nenhuma obra liberada para você ainda.<br>Peça ao responsável da empresa para cadastrar a obra e liberar o seu acesso a ela.</div></section>`);return}
+  const V=obrasVisiveis(),o=V.find(x=>x.id===db.ui.encObra)||V.find(x=>x.status!=='Concluída')||V[0];if(!o){$('app').innerHTML=sair+tabs+`<section class="card"><div class="vazio">🏗️ Nenhuma obra liberada para você ainda.<br>Peça ao responsável da empresa para cadastrar a obra e liberar o seu acesso a ela.</div></section>`;return}db.ui.obraId=o.id;
   $('app').innerHTML=sair+tabs+`<section class="card"><div class="fg"><label>Obra</label><select onchange="db.ui.encObra=this.value;render()">${opcoesObras(o.id)}</select></div></section><div id="abaConteudo"></div>`;renderDiario(o,$('abaConteudo'))}
 
 /* ================= PACOTE DA MEDIÇÃO ================= */
