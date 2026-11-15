@@ -2682,11 +2682,12 @@ function svgCurvaS(o,larg){const C=cronoObra(o);if(!C.ini||!C.fim||C.fim<=C.ini)
 function setCrono(oid,k,v){const o=db.obras.find(x=>x.id===oid);if(!o)return;o.crono={...(o.crono||{}),[k]:v||''};salvar();render()}
 /* ================= ORÇAMENTO SINAPI + CURVA ABC ================= */
 const SN={meta:null,itens:null,carregando:null,nd:null,tmp:null};
+const SN_PADRAO={url:'sinapi_ma.json',uf:'MA',mes:'10/2026',des:'SD',desonTxt:'sem desoneração',n:13837,padrao:true};
 const urlBlobSn=id=>(window.BLOB||('/_'+'blob/'))+id;
 const UFS_SN=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
-async function snMeta(){if(SN.meta!==null)return SN.meta;try{const d=await store.doc('sinapi/base').get();SN.meta=d.exists?d.data():false}catch(e){SN.meta=false}return SN.meta}
-async function snItens(){if(SN.itens)return SN.itens;const m=await snMeta();if(!m||!m.asset)return null;
-  if(!SN.carregando)SN.carregando=fetch(urlBlobSn(m.asset)).then(r=>{if(!r.ok)throw 0;return r.json()}).then(j=>{SN.itens=j.itens||[];SN.nd=null;return SN.itens}).catch(e=>{SN.carregando=null;return null});return SN.carregando}
+async function snMeta(){if(SN.meta!==null)return SN.meta;try{const d=await store.doc('sinapi/base').get();SN.meta=d.exists&&d.data().asset?d.data():SN_PADRAO}catch(e){SN.meta=SN_PADRAO}return SN.meta}
+async function snItens(){if(SN.itens)return SN.itens;const m=await snMeta();if(!m||!(m.asset||m.url))return null;
+  if(!SN.carregando)SN.carregando=fetch(m.asset?urlBlobSn(m.asset):m.url).then(r=>{if(!r.ok)throw 0;return r.json()}).then(j=>{SN.itens=j.itens||[];SN.nd=null;return SN.itens}).catch(e=>{SN.carregando=null;return null});return SN.carregando}
 function snNum(v){if(typeof v==='number')return v;if(v==null)return NaN;const s=String(v).trim().replace(/[R$\s]/g,'');if(!s)return NaN;return parseFloat(s.includes(',')?s.replace(/\./g,'').replace(',','.'):s)}
 function snBusca(q){const L=SN.itens||[];q=normTxt(q).trim();if(!q)return[];if(!SN.nd)SN.nd=L.map(x=>normTxt(x[1]));
   if(/^\d[\d./-]*$/.test(q)){const r=L.filter(x=>String(x[0]).startsWith(q));return r.sort((a,b)=>String(a[0]).length-String(b[0]).length).slice(0,40)}
@@ -2694,7 +2695,7 @@ function snBusca(q){const L=SN.itens||[];q=normTxt(q).trim();if(!q)return[];if(!
   return r.sort((a,b)=>(a[4]==='C'?0:1)-(b[4]==='C'?0:1)).slice(0,40)}
 /* ---- importar planilha ---- */
 function abrirSinapi(){SN.tmp=null;$('snOk').hidden=true;snTela();abrirModal('modalSn');snMeta().then(snTela)}
-function snTela(){const m=SN.meta;$('snBody').innerHTML=`<div class="obs" style="margin-bottom:10px">${m&&m.n?`📚 Base atual: <b>SINAPI ${esc(m.uf||'')} · ${esc(m.mes||'')}${m.desonTxt?' · '+esc(m.desonTxt):''}</b> · ${(+m.n).toLocaleString('pt-BR')} itens · importada em ${fd(String(m.em||'').slice(0,10))}`:'Nenhuma base SINAPI carregada ainda.'}</div>
+function snTela(){const m=SN.meta;$('snBody').innerHTML=`<div class="obs" style="margin-bottom:10px">${m&&m.n?`📚 Base atual: <b>SINAPI ${esc(m.uf||'')} · ${esc(m.mes||'')}${m.desonTxt?' · '+esc(m.desonTxt):''}</b> · ${(+m.n).toLocaleString('pt-BR')} itens · ${m.padrao?'base padrão do programa':'importada em '+fd(String(m.em||'').slice(0,10))}`:'Nenhuma base SINAPI carregada ainda.'}</div>
   <p style="font-size:.85rem;color:#334155;margin-bottom:10px">1) No site da Caixa (<b>caixa.gov.br/sinapi</b>) baixe a planilha de referência do mês em <b>Excel</b>. Se vier em .zip, extraia antes.<br>2) Escolha o arquivo aqui. O programa encontra as composições e os insumos e pede o estado.</p>
   <input type="file" accept=".xlsx,.xls,.xlsm,.csv" onchange="snArquivo(this)"><div id="snOpc" style="margin-top:12px"></div>`}
 async function snArquivo(inp){const f=inp.files[0];if(!f)return;$('snOpc').innerHTML='<div class="obs">⏳ Lendo a planilha… (pode levar alguns segundos)</div>';
@@ -2713,7 +2714,7 @@ async function snArquivo(inp){const f=inp.files[0];if(!f)return;$('snOpc').inner
       <div class="obs" id="snTot" style="margin-top:6px"></div>`;
     if(temDes)snMarcaDes();snContar();$('snOk').hidden=false}
   catch(e){$('snOpc').innerHTML='';aviso('Não consegui ler esse arquivo. Envie a planilha do SINAPI em Excel (.xlsx).')}}
-function snAnalisa(wb,X){const abas=[];wb.SheetNames.forEach(nm=>{let rows;try{rows=X.utils.sheet_to_json(wb.Sheets[nm],{header:1,raw:true,defval:null,blankrows:false})}catch(e){return}
+function snAnalisa(wb,X){const abas=[];wb.SheetNames.forEach(nm=>{let rows;try{rows=X.utils.sheet_to_json(wb.Sheets[nm],{header:1,raw:true,defval:null,blankrows:true})}catch(e){return}
     let hi=-1;for(let r=0;r<Math.min(rows.length,60);r++){const R=(rows[r]||[]).map(v=>typeof v==='string'?normTxt(v):'');if(R.some(v=>/^cod|codigo/.test(v))&&R.some(v=>/descri/.test(v))){hi=r;break}}
     if(hi<0)return;const Hn=(rows[hi]||[]).map(v=>normTxt(v==null?'':String(v)).trim()),f=re=>Hn.findIndex(v=>re.test(v));
     const cC=f(/^cod|codigo/),cD=f(/descri/),cU=f(/^unid|^und\b|^un\b|unidade/);const ufc={};
@@ -2721,10 +2722,11 @@ function snAnalisa(wb,X){const abas=[];wb.SheetNames.forEach(nm=>{let rows;try{r
     let cP=-1;if(!Object.keys(ufc).length)for(let ix=Hn.length-1;ix>=0;ix--)if(/custo|preco|valor/.test(Hn[ix])&&!/%|percent|mao de obra|material|equip|servico terc/.test(Hn[ix])){cP=ix;break}
     if(cC<0||cD<0||(cP<0&&!Object.keys(ufc).length))return;
     const n=normTxt(nm),tipo=/compo|^c(sd|cd|se)$|sintet/.test(n)?'C':/insu|^i(sd|cd|se)$/.test(n)?'I':'';
-    abas.push({nm,rows,ini:hi+1,cC,cD,cU,cP,ufc,tipo,def:!/anal|menu|busca|famil|manten/.test(n)})});return abas}
+    let off={r:0,c:0};try{off=X.utils.decode_range(wb.Sheets[nm]['!ref']).s}catch(e){}
+    abas.push({nm,rows,ws:wb.Sheets[nm],off,ini:hi+1,cC,cD,cU,cP,ufc,tipo,def:!/anal|menu|busca|famil|manten/.test(n)})});return abas}
 function snMarcaDes(){const d=$('snDes').value;document.querySelectorAll('#snAbas input').forEach(c=>{const a=SN.tmp.abas[+c.dataset.i],m=a.nm.trim().match(/^[ic](sd|cd|se)$/i);if(m)c.checked=m[1].toUpperCase()===d})}
 function snExtrai(a,uf){const col=Object.keys(a.ufc).length?a.ufc[uf]:a.cP;if(col==null||col<0)return[];const out=[];
-  for(let r=a.ini;r<a.rows.length;r++){const R=a.rows[r];if(!R)continue;let c=R[a.cC];if(c==null||c==='')continue;c=String(c).trim();if(!/^\d[\d./-]*$/.test(c))continue;
+  for(let r=a.ini;r<a.rows.length;r++){const R=a.rows[r];if(!R)continue;let c=R[a.cC];if(c==null||c===''||c===0||c==='0'){const X=window.XLSX,cel=X&&a.ws?a.ws[X.utils.encode_cell({r:a.off.r+r,c:a.off.c+a.cC})]:null,mf=cel&&cel.f?String(cel.f).match(/,\s*"?(\d+)"?\s*\)\s*$/):null;c=mf?mf[1]:null}if(c==null)continue;c=String(c).trim();if(!/^\d[\d./-]*$/.test(c)||c==='0')continue;
     const d=R[a.cD];if(!d)continue;const p=snNum(R[col]);if(isNaN(p)||p<0)continue;out.push([c,String(d).trim(),a.cU>=0&&R[a.cU]!=null?String(R[a.cU]).trim():'',Math.round(p*100)/100,a.tipo])}return out}
 function snSel(){const uf=$('snUf')?$('snUf').value:'',M=new Map();document.querySelectorAll('#snAbas input').forEach(c=>{const a=SN.tmp.abas[+c.dataset.i],L=snExtrai(a,uf);$('snN'+c.dataset.i).textContent='· '+L.length.toLocaleString('pt-BR')+' itens';if(c.checked)L.forEach(x=>M.set(x[4]+x[0],x))});return[...M.values()]}
 function snContar(){if(!SN.tmp)return;const L=snSel();$('snTot').innerHTML=`Total a importar: <b>${L.length.toLocaleString('pt-BR')}</b> itens (${L.filter(x=>x[4]==='C').length.toLocaleString('pt-BR')} composições, ${L.filter(x=>x[4]==='I').length.toLocaleString('pt-BR')} insumos)`}
@@ -2746,7 +2748,7 @@ function curvaABC(it){const T=soma(it,x=>x.tot)||1;let ac=0;return it.filter(x=>
 function btnsOrc(oid,lid){return `<span class="acoes"><button class="ac ac-e" onclick="moverOrc('${oid}','${lid}',-1)" title="Subir">⬆️</button><button class="ac ac-e" onclick="moverOrc('${oid}','${lid}',1)" title="Descer">⬇️</button><button class="ac ac-e" onclick="editarOrc('${oid}','${lid}')" title="Editar">✏️</button><button class="ac ac-x" onclick="excluirOrc('${oid}','${lid}')" title="Excluir">🗑️</button></span>`}
 function renderOrcS(o,box){const C=orcCalc(o),N=orcNum(C.S.linhas),m=SN.meta;if(m===null)snMeta().then(()=>{if(db.ui.aba==='orc')render()});
   box.innerHTML=`<section class="card"><div class="card-head"><h2>📐 Orçamento</h2><div class="obra-btns"><button class="btn btn-verde btn-sm" onclick="abrirOrcItem('${o.id}')">+ Item</button><button class="btn btn-cinza btn-sm" onclick="abrirOrcEt('${o.id}')">+ Etapa</button>${C.it.length?`<button class="btn btn-cinza btn-sm" onclick="imprimirOrcS('${o.id}')">🖨️ Imprimir</button>`:''}</div></div>
-    <div class="obs" style="margin-bottom:10px">📚 ${m&&m.n?`Base SINAPI <b>${esc(m.uf||'')} ${esc(m.mes||'')}</b>${m.desonTxt?' · '+esc(m.desonTxt):''} · ${(+m.n).toLocaleString('pt-BR')} itens`:m===null?'carregando base…':'Nenhuma base SINAPI carregada'} · <a href="#" onclick="abrirSinapi();return false">${m&&m.n?'trocar base':'importar planilha SINAPI'}</a></div>
+    <div class="obs" style="margin-bottom:10px">📚 ${m&&m.n?`Base SINAPI <b>${esc(m.uf||'')} ${esc(m.mes||'')}</b>${m.desonTxt?' · '+esc(m.desonTxt):''} · ${(+m.n).toLocaleString('pt-BR')} itens${m.padrao?' (padrão)':''}`:m===null?'carregando base…':'Nenhuma base SINAPI carregada'} · <a href="#" onclick="abrirSinapi();return false">${m&&m.n?'trocar base':'importar planilha SINAPI'}</a></div>
     <div class="fg-row"><div class="fg"><label>BDI (%)</label><input inputmode="decimal" value="${String(+C.S.bdi||0).replace('.',',')}" onchange="setBdiOrc('${o.id}',this.value)"></div><div class="fg"></div></div>
     <div class="kpi-grid">${kpi('🧱 Custo direto',fm(C.custo),'cinza',C.it.length+' item(ns)')}${kpi('📈 BDI',fm(r2(C.total-C.custo)),'amarelo',String(+C.S.bdi||0).replace('.',',')+'%')}${kpi('💰 Preço total',fm(C.total),'azul','com BDI')}</div>
     ${C.S.linhas.length?`<div class="tabela"><table><thead><tr><th>Item</th><th>Código</th><th>Descrição</th><th class="c">Un</th><th class="r">Qtde</th><th class="r">Custo unit.</th><th class="r">Preço c/ BDI</th><th class="r">Total</th><th></th></tr></thead><tbody>
