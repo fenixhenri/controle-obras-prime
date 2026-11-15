@@ -4358,7 +4358,7 @@ async function receberMudanca(inp){const fs=[...inp.files];inp.value='';if(!fs.l
     const arqs=entradas.filter(x=>x.nome.startsWith('arquivos/'));
     if(dados&&!await confirmar('🚚 Receber mudança',`Vai trazer ${Object.keys(dados.docs).length} registros e ${arqs.length} de ${dados.arquivos.length} arquivos para cá. Os dados atuais deste programa serão substituídos pelos da versão antiga. Continuar?`,'Receber',true))return;
     document.body.appendChild(st);const sb=window.ctaSb,emp=E.id;
-    let tipos={};if(dados)dados.arquivos.forEach(a=>tipos[a.id]=a.tipo);
+    let tipos={};if(dados)dados.arquivos.forEach(a=>tipos[a.id]=a.tipo);entradas.filter(x=>x.nome==='tipos.json').forEach(x=>{try{Object.assign(tipos,JSON.parse(ZIPX.td.decode(x.dados)))}catch(e){}});
     let ok=0,falha=0;for(let i=0;i<arqs.length;i++){const a=arqs[i],id=a.nome.slice(9);txt(`Enviando arquivos ${i+1} de ${arqs.length}…`);
       const tp=tipos[id]||'application/octet-stream';const{error}=await sb.storage.from('arquivos').upload(emp+'/'+id,new Blob([a.dados],{type:tp}),{contentType:tp,upsert:false});if(error&&!/exist|duplicate|409/i.test((error.message||'')+(error.statusCode||'')+(error.error||'')))falha++;else ok++}
     if(dados){txt('Gravando os dados…');const ids=dados.arquivos.map(a=>a.id);const re=ids.length?new RegExp('("|/_blob/)('+ids.join('|')+')(?=["?#])','g'):null;
@@ -4366,7 +4366,7 @@ async function receberMudanca(inp){const fs=[...inp.files];inp.value='';if(!fs.l
       const antigos=await sb.from('docs').select('path').eq('empresa_id',emp);const novos=new Set(linhas.map(l=>l.path));
       for(const r of (antigos.data||[]))if(!novos.has(r.path))await sb.from('docs').delete().eq('empresa_id',emp).eq('path',r.path);
       for(let i=0;i<linhas.length;i+=20){txt(`Gravando os dados ${Math.min(i+20,linhas.length)} de ${linhas.length}…`);const{error}=await sb.from('docs').upsert(linhas.slice(i,i+20));if(error)throw error}}
-    st.remove();await confirmar('✅ Mudança recebida',` ${dados?Object.keys(dados.docs).length+' registros e ':''}${ok} arquivos${falha?` (${falha} falharam)`:''}.${dados&&dados.partes>1&&fs.length<dados.partes?` Faltam partes: escolha também as outras partes do .zip.`:''}`,'OK');location.reload()
+    st.remove();await confirmar('✅ Mudança recebida',` ${dados?Object.keys(dados.docs).length+' registros e ':''}${ok} arquivos enviados${falha?` (${falha} falharam)`:''}.${dados&&dados.partes>1&&fs.length<dados.partes?` Faltam partes: escolha também as outras partes do .zip.`:''}`,'OK');location.reload()
   }catch(e){st.remove();aviso('Não foi possível receber a mudança: '+(e.message||e))}}
 
 function abrirConfig(){setTimeout(usuariosUI,0);$('cfEmpresa').value=db.config.empresa||'';$('cfCnpj').value=db.config.cnpj||'';$('cfBanco').value=db.config.banco||'';$('cfConta').value=db.config.conta||'';$('cfPix').value=db.config.pix||'';$('cfFaixa').value=String(db.config.faixa).replace('.',',');$('cfCats').value=db.config.categorias.join('\n');
