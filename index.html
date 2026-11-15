@@ -1361,12 +1361,44 @@ function enfileirar(path,fn){pendentes++;setSync();
 function cfgDados(){const c=db.config;return{empresa:c.empresa,categorias:c.categorias,faixa:c.faixa,cnpj:c.cnpj||'',banco:c.banco||'',conta:c.conta||'',pix:c.pix||'',bolEmpresa:c.bolEmpresa||'',equipe:Array.isArray(c.equipe)?c.equipe:[],backupAuto:c.backupAuto===true,ultimoBackup:c.ultimoBackup||'',pinHash:c.pinHash||'',pinSalt:c.pinSalt||'',pinEncHash:c.pinEncHash||'',pinEncSalt:c.pinEncSalt||'',encarregados:Array.isArray(c.encarregados)?c.encarregados:[],
   despFixas:Array.isArray(c.despFixas)?c.despFixas:[],despPag:c.despPag&&typeof c.despPag==='object'?c.despPag:{},retiradas:Array.isArray(c.retiradas)?c.retiradas:[],proLabore:+c.proLabore||0,diaProLabore:+c.diaProLabore||5,
   saldoCaixa:c.saldoCaixa||null,prazoReceb:c.prazoReceb==null?30:+c.prazoReceb,diaFolha:+c.diaFolha||5,prevMov:Array.isArray(c.prevMov)?c.prevMov:[],propostas:Array.isArray(c.propostas)?c.propostas:[],fiscal:c.fiscal&&typeof c.fiscal==='object'?c.fiscal:null,alugueis:Array.isArray(c.alugueis)?c.alugueis:[],tabPrecos:c.tabPrecos&&typeof c.tabPrecos==='object'?c.tabPrecos:null,propPad:c.propPad||null,propBancoOn:!!c.propBancoOn,ferramentas:Array.isArray(c.ferramentas)?c.ferramentas:[],ferDias:+c.ferDias||60,emprestimos:Array.isArray(c.emprestimos)?c.emprestimos:[],horasMes:+c.horasMes||240,horasDia:+c.horasDia||8,quantMat:Array.isArray(c.quantMat)?c.quantMat:[],precoBase:precosBase(),m2dia:c.m2dia&&typeof c.m2dia==='object'?c.m2dia:{},contracheques:c.contracheques&&typeof c.contracheques==='object'?c.contracheques:{},escala:c.escala&&typeof c.escala==='object'?c.escala:{},despPagPor:c.despPagPor&&typeof c.despPagPor==='object'?c.despPagPor:{},despPagComp:c.despPagComp&&typeof c.despPagComp==='object'?c.despPagComp:{},reembolsos:Array.isArray(c.reembolsos)?c.reembolsos:[],ajustes:Array.isArray(c.ajustes)?c.ajustes:[]}}
+/* ---- gravação com junção: um aparelho desatualizado não apaga o que outro lançou ---- */
+function igualJ(a,b){return JSON.stringify(a)===JSON.stringify(b)}
+function ehObj(x){return x&&typeof x==='object'&&!Array.isArray(x)}
+function arrIds(a){return Array.isArray(a)&&a.length>0&&a.every(x=>ehObj(x)&&x.id!=null)}
+function juntar3(b,l,s){
+  if(igualJ(l,b))return s===undefined?l:s;
+  if(igualJ(s,b)||s===undefined)return l;
+  if(igualJ(l,s))return l;
+  if(ehObj(l)&&ehObj(s)){const B=ehObj(b)?b:{},r={},ks=new Set([...Object.keys(s),...Object.keys(l),...Object.keys(B)]);
+    ks.forEach(k=>{const inL=k in l,inS=k in s,inB=k in B;
+      if(!inL&&inB){if(inS&&!igualJ(s[k],B[k]))r[k]=s[k];return}
+      if(!inS&&inB){if(inL&&!igualJ(l[k],B[k]))r[k]=l[k];return}
+      if(!inL){r[k]=s[k];return}if(!inS){r[k]=l[k];return}
+      r[k]=juntar3(B[k],l[k],s[k])});return r}
+  if(Array.isArray(l)&&Array.isArray(s)){const B=Array.isArray(b)?b:[];
+    if((arrIds(l)||!l.length)&&(arrIds(s)||!s.length)&&(arrIds(B)||!B.length)&&(l.length||s.length)){
+      const mB=new Map(B.map(x=>[x.id,x])),mL=new Map(l.map(x=>[x.id,x])),mS=new Map(s.map(x=>[x.id,x])),out=[];
+      const um=id=>{const xb=mB.get(id),xl=mL.get(id),xs=mS.get(id);
+        if(xb){if(!xl){if(xs&&!igualJ(xs,xb))return xs;return null}if(!xs){if(!igualJ(xl,xb))return xl;return null}return juntar3(xb,xl,xs)}
+        return xl&&xs?juntar3(undefined,xl,xs):(xl||xs)};
+      const vistos=new Set();[...s,...l].forEach(x=>{if(vistos.has(x.id))return;vistos.add(x.id);const r=um(x.id);if(r!=null)out.push(r)});return out}
+    if(l.every(x=>typeof x!=='object')&&s.every(x=>typeof x!=='object')){const sb=new Set(B.map(String)),out=[],vis=new Set();
+      [...l,...s].forEach(x=>{const k=typeof x+':'+x;if(vis.has(k))return;vis.add(k);const tirou=sb.has(String(x))&&(!l.includes(x)||!s.includes(x));if(!tirou)out.push(x)});return out}}
+  return l}
+async function gravarJuntando(path,local,baseStr,aoJuntar){
+  let base=null;try{base=baseStr?JSON.parse(baseStr):null}catch(e){}
+  let srv=null;try{const d=await store.doc(path).get();srv=d&&d.exists?JSON.parse(JSON.stringify(d.data())):null}catch(e){srv=undefined}
+  let body=local;
+  if(srv&&base){const sv=aoJuntar.norm?aoJuntar.norm(srv):srv;if(!igualJ(sv,base)&&!igualJ(sv,local)){body=juntar3(base,local,sv);aoJuntar.fim(body)}}
+  await store.doc(path).set(body)}
 function sincronizar(){
   if(!store||carregando)return;
   const vistos=new Set();
-  db.obras.forEach(o=>{vistos.add(o.id);const j=JSON.stringify(o);if(ultimoSync[o.id]!==j){ultimoSync[o.id]=j;const body=JSON.parse(j);enfileirar('obras/'+o.id,()=>store.doc('obras/'+o.id).set(body))}});
+  db.obras.forEach(o=>{vistos.add(o.id);const j=JSON.stringify(o);if(ultimoSync[o.id]!==j){const base=ultimoSync[o.id];ultimoSync[o.id]=j;const body=JSON.parse(j),oid=o.id;
+    enfileirar('obras/'+oid,()=>gravarJuntando('obras/'+oid,body,base,{norm:x=>{x.id=oid;normalizarObra(x);return JSON.parse(JSON.stringify(x))},fim:m=>{const at=db.obras.find(x=>x.id===oid);if(at){Object.keys(at).forEach(k=>delete at[k]);Object.assign(at,JSON.parse(JSON.stringify(m)))}ultimoSync[oid]=JSON.stringify(m);if(!carregando)renderRemoto()}}))}});
   Object.keys(ultimoSync).forEach(id=>{if(!vistos.has(id)){delete ultimoSync[id];enfileirar('obras/'+id,()=>store.doc('obras/'+id).delete())}});
-  const cj=JSON.stringify(cfgDados());if(cj!==ultimoConfig){ultimoConfig=cj;const body=JSON.parse(cj);enfileirar('config/app',()=>store.doc('config/app').set(body))}
+  const cj=JSON.stringify(cfgDados());if(cj!==ultimoConfig){const base=ultimoConfig;ultimoConfig=cj;const body=JSON.parse(cj),ks=Object.keys(body);
+    enfileirar('config/app',()=>gravarJuntando('config/app',body,base,{norm:x=>{const r={};ks.forEach(k=>{if(k in x)r[k]=x[k]});return r},fim:m=>{db.config={...db.config,...JSON.parse(JSON.stringify(m))};ultimoConfig=JSON.stringify(cfgDados());if(!carregando)renderRemoto()}}))}
 }
 function salvar(){try{localStorage.setItem(UI_KEY,JSON.stringify(db.ui))}catch(e){}sincronizar()}
 function carregar(){
@@ -1394,7 +1426,7 @@ async function conectar(){
 }
 function corrigirJardel(){const J='Jardel Aguiar dos Santos',F={obra_mv9wpptdjlqk:['gas_mv9ww6eholqq','gas_mv9x56vblg2s'],obra_pdf_0:['obra_pdf_0_g12'],obra_pdf_3:['obra_pdf_3_g50']};let n=0;
   Object.entries(F).forEach(([oid,ids])=>{const o=db.obras.find(x=>x.id===oid);if(!o)return;o.gastos.forEach(g=>{if(ids.includes(g.id)&&g.pessoa===J){delete g.pessoa;n++}})});if(n)salvar();return n}
-function terminouCarga(){if(!recebeuObras||!recebeuConfig)return;const primeira=carregando;carregando=false;setSync();if(primeira){pinLiberado=true;if(window.ctaEmpresa&&ctaEmpresa.papel==='encarregado'){encAtual={id:'cta',nome:ctaEmpresa.email,obras:[]};setTimeout(entrarModoEnc,0)}if(!db.config.empresa&&window.ctaEmpresa&&ctaEmpresa.nome){db.config.empresa=ctaEmpresa.nome;salvar()}corrigirJardel();aplicarAjustes();algConferirPagos();render();if(db.config.pinHash&&!pinLiberado)travar();else checarBackupSemanal()}else{try{aplicarAjustes();algConferirPagos()}catch(e){}renderRemoto()}}
+function terminouCarga(){if(!recebeuObras||!recebeuConfig)return;const primeira=carregando;carregando=false;setSync();if(primeira){pinLiberado=true;if(window.ctaEmpresa&&ctaEmpresa.papel==='encarregado'){encAtual={id:'cta',nome:ctaEmpresa.email,obras:[]};setTimeout(entrarModoEnc,0)}if(!db.config.empresa&&window.ctaEmpresa&&ctaEmpresa.nome){db.config.empresa=ctaEmpresa.nome;salvar()}corrigirJardel();aplicarAjustes();ajustesRemotos();algConferirPagos();render();if(db.config.pinHash&&!pinLiberado)travar();else checarBackupSemanal()}else{try{aplicarAjustes();algConferirPagos()}catch(e){}renderRemoto()}}
 function obraDeAntigo(app,med,gas){
   const o={id:novoId('obra'),nome:app.nomeObra||'Obra importada',contratante:'',local:'',valorContrato:+app.valorContrato||0,dataInicio:'',status:'Em andamento',obs:'',orcamento:{},
     medicoes:(med||[]).map(m=>({id:m.id||novoId('med'),data:m.data,descricao:m.descricao||'',valor:+m.valor||0,status:m.status||'Recebido'})),
@@ -3922,6 +3954,7 @@ let algEd=null;
 function algNT(a){return (+a.n||1)+(a.ren||[]).length}
 function algFim(a){return addDias(a.data,algNT(a)*ALG_T[a.tipo||'dia'].d)}
 function algTot(a){return r2((+a.valor||0)*(+a.n||1)+soma(a.ren||[],r=>+r.valor||0))}
+async function ajustesRemotos(){if(!store)return;try{const sn=await store.collection('ajustes').get();let n=0;for(const d of sn.docs){if(!d.exists)continue;const a=JSON.parse(JSON.stringify(d.data()||{})),o=db.obras.find(x=>x.id===a.oid);if(o&&a.add&&!o.gastos.some(g=>g.id===a.add.id)){o.gastos.push(a.add);n++}if(o&&a.gid&&a.set){const g=o.gastos.find(x=>x.id===a.gid);if(g){Object.assign(g,a.set);n++}}try{await store.doc('ajustes/'+d.id).delete()}catch(e){}}if(n){salvar();render();toast('✓ '+n+' lançamento(s) recuperado(s)')}}catch(e){}}
 function aplicarAjustes(){const A=Array.isArray(db.config.ajustes)?db.config.ajustes:[];if(!A.length)return;A.forEach(a=>{const o=db.obras.find(x=>x.id===a.oid),g=o&&o.gastos.find(x=>x.id===a.gid);if(g&&a.set&&typeof a.set==='object')Object.assign(g,a.set)});db.config.ajustes=[];salvar()}
 function algConferirPagos(){let mud=false;arr('alugueis').forEach(a=>{if(!a.lanc)return;[a,...(a.ren||[])].forEach(c=>{const r=algAchaG(c);if(!r||r.emp)return;const pend=!c.pago;if(!!r.g.pendente!==pend){r.g.pendente=pend;mud=true}
     const vt=c===a?r2((+a.valor||0)*(+a.n||1)):(+c.valor||0);if(vt&&Math.abs((+r.g.valorTotal||0)-vt)>0.004){r.g.valorTotal=vt;mud=true}
