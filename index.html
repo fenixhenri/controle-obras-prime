@@ -163,6 +163,12 @@ main{max-width:1200px;margin:0 auto;padding-block:14px 110px;padding-left:max(16
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
 .grid2>.card{margin-bottom:0}
 .grid2>*{min-width:0}
+.orc-et td{background:#eef2ff}
+.oi-res{max-height:240px;overflow:auto;margin:-4px 0 10px}
+.oi-r{display:block;width:100%;text-align:left;border:1px solid #e2e8f0;background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:.82rem;color:#0f172a;cursor:pointer}
+.oi-r div{color:#475569;margin-top:2px}
+.abc-tag,#rel .abc-tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.75rem;font-weight:700;margin:2px 0}
+.abc-A,#rel .abc-A{background:#fee2e2;color:#991b1b}.abc-B,#rel .abc-B{background:#fef3c7;color:#92400e}.abc-C,#rel .abc-C{background:#dcfce7;color:#166534}
 .grid2{margin-bottom:14px}
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
 .kpi{background:#fff;border-radius:13px;padding:13px;box-shadow:var(--sombra);border-left:4px solid var(--cinza2)}
@@ -1019,6 +1025,28 @@ details.cf-sec{border:1px solid var(--linha);border-radius:12px;margin-bottom:10
   </div>
 </div></div>
 
+<div class="modal-bg" id="modalSn"><div class="modal">
+  <div class="modal-h"><h3>📚 Base SINAPI</h3><button class="fechar" onclick="fecharModal('modalSn')">×</button></div>
+  <div class="modal-b" id="snBody"></div>
+  <div class="modal-f"><button class="btn btn-cinza" onclick="fecharModal('modalSn')">Fechar</button><button class="btn btn-azul" id="snOk" onclick="snImportar()" hidden>Importar</button></div>
+</div></div>
+<div class="modal-bg" id="modalOrcIt"><div class="modal">
+  <div class="modal-h"><h3 id="oiTit">📐 Item do orçamento</h3><button class="fechar" onclick="fecharModal('modalOrcIt')">×</button></div>
+  <div class="modal-b">
+    <div class="fg"><label>Buscar na base SINAPI (código ou palavras)</label><input id="oiBusca" placeholder="Ex: 88489 ou pintura latex parede" oninput="oiBuscar()" autocomplete="off"></div>
+    <div id="oiRes" class="oi-res"></div>
+    <div class="fg-row"><div class="fg"><label>Código</label><input id="oiCod"></div><div class="fg"><label>Fonte</label><input id="oiFonte" placeholder="SINAPI"></div></div>
+    <div class="fg"><label>Descrição *</label><textarea id="oiDesc" rows="3"></textarea></div>
+    <div class="fg-row"><div class="fg"><label>Unidade</label><input id="oiUn" placeholder="M2"></div><div class="fg"><label>Quantidade *</label><input id="oiQtd" inputmode="decimal" placeholder="0"></div></div>
+    <div class="fg"><label>Custo unitário sem BDI (R$)</label><input id="oiCusto" inputmode="numeric" placeholder="0,00" oninput="maskMoeda(this)"></div>
+  </div>
+  <div class="modal-f"><button class="btn btn-cinza" onclick="fecharModal('modalOrcIt')">Cancelar</button><button class="btn btn-azul" onclick="salvarOrcItem()">Salvar</button></div>
+</div></div>
+<div class="modal-bg" id="modalOrcEt"><div class="modal">
+  <div class="modal-h"><h3>📂 Etapa do orçamento</h3><button class="fechar" onclick="fecharModal('modalOrcEt')">×</button></div>
+  <div class="modal-b"><div class="fg"><label>Nome da etapa *</label><input id="oeNome" placeholder="Ex: Serviços preliminares, Pintura"></div></div>
+  <div class="modal-f"><button class="btn btn-cinza" onclick="fecharModal('modalOrcEt')">Cancelar</button><button class="btn btn-azul" onclick="salvarOrcEt()">Salvar</button></div>
+</div></div>
 <!-- MODAL CONFIG -->
 <div class="modal-bg" id="modalItem"><div class="modal">
   <div class="modal-h"><h3 id="tItem">Item</h3><button class="fechar" onclick="fecharModal('modalItem')">×</button></div>
@@ -1230,7 +1258,7 @@ const store={
 };
 
 /* ---------- arquivos ---------- */
-function novoNome(tipo){const a=new Uint8Array(16);crypto.getRandomValues(a);const h=[...a].map(x=>x.toString(16).padStart(2,'0')).join('');const ext=/pdf/.test(tipo||'')?'pdf':/png/.test(tipo||'')?'png':'jpg';return empresaId+'/'+h+'.'+ext}
+function novoNome(tipo){const a=new Uint8Array(16);crypto.getRandomValues(a);const h=[...a].map(x=>x.toString(16).padStart(2,'0')).join('');const ext=/pdf/.test(tipo||'')?'pdf':/png/.test(tipo||'')?'png':/json/.test(tipo||'')?'json':'jpg';return empresaId+'/'+h+'.'+ext}
 const assets={upload:async(blob,o)=>{const tipo=(o&&o.type)||blob.type||'image/jpeg',nome=novoNome(tipo);const{error}=await sb.storage.from('arquivos').upload(nome,blob,{contentType:tipo,upsert:false});if(error)throw error;return{id:nome,size:blob.size}}};
 
 /* ---------- downloads e usuário ---------- */
@@ -1711,7 +1739,7 @@ function renderObra(){
   renderAba(o,cP,cT);
 }
 function setPer(p){Object.assign(db.ui.periodo,p);salvar();render()}
-const GRUPOS_ABA=[{k:'fin',t:'💰 Financeiro',abas:[['gastos','💸 Gastos'],['medicoes','💵 Medições'],['analises','📊 Análises']]},{k:'exec',t:'📏 Execução',abas:[['boletim','📏 Boletim'],['crono','🗓️ Cronograma'],['entrega','🏁 Entrega']]},{k:'campo',t:'📔 Campo',abas:[['diario','📔 Diário e material']]}];
+const GRUPOS_ABA=[{k:'fin',t:'💰 Financeiro',abas:[['gastos','💸 Gastos'],['medicoes','💵 Medições'],['analises','📊 Análises']]},{k:'exec',t:'📏 Execução',abas:[['orc','📐 Orçamento'],['boletim','📏 Boletim'],['crono','🗓️ Cronograma'],['entrega','🏁 Entrega']]},{k:'campo',t:'📔 Campo',abas:[['diario','📔 Diário e material']]}];
 function setAba(a){db.ui.aba=a;const g=GRUPOS_ABA.find(x=>x.abas.some(t=>t[0]===a));if(g)db.ui.abaG={...(db.ui.abaG||{}),[g.k]:a};salvar();render()}
 function setGrupoAba(k){const g=GRUPOS_ABA.find(x=>x.k===k);if(!g)return;const u=(db.ui.abaG||{})[k];setAba(u&&g.abas.some(t=>t[0]===u)?u:g.abas[0][0])}
 
@@ -1720,6 +1748,7 @@ function renderAba(o,cP,cT,abaF,boxF){
   if(aba==='analises'){box.innerHTML='<div id="anGraf"></div><div id="anCat"></div><div id="anForn"></div>';renderAba(o,cP,cT,'graficos',$('anGraf'));renderAba(o,cP,cT,'categorias',$('anCat'));renderAba(o,cP,cT,'fornecedores',$('anForn'));return}
   if(aba==='boletim'){renderBoletim(o,box);return}
   if(aba==='diario'){renderDiario(o,box);return}
+  if(aba==='orc'){renderOrcS(o,box);return}
   if(aba==='crono'){renderCrono(o,box);return}
   if(aba==='entrega'){renderEntrega(o,box);return}
   if(aba==='gastos'){
@@ -2650,6 +2679,123 @@ function svgCurvaS(o,larg){const C=cronoObra(o);if(!C.ini||!C.fim||C.fim<=C.ini)
     <polyline points="${pl(real)}" fill="none" stroke="#16a34a" stroke-width="2.6"/>${real.slice(1).map(q=>`<circle cx="${q[0]}" cy="${q[1]}" r="3.5" fill="#16a34a"/>`).join('')}
     <g font-size="10.5" font-weight="700"><line x1="${L+8}" x2="${L+30}" y1="${Hh-8}" y2="${Hh-8}" stroke="#2563eb" stroke-width="2" stroke-dasharray="6 4"/><text x="${L+34}" y="${Hh-4.5}" fill="#1e3a8a">Previsto</text><line x1="${L+100}" x2="${L+122}" y1="${Hh-8}" y2="${Hh-8}" stroke="#16a34a" stroke-width="2.6"/><text x="${L+126}" y="${Hh-4.5}" fill="#166534">Executado (medido)</text></g></svg>`}
 function setCrono(oid,k,v){const o=db.obras.find(x=>x.id===oid);if(!o)return;o.crono={...(o.crono||{}),[k]:v||''};salvar();render()}
+/* ================= ORÇAMENTO SINAPI + CURVA ABC ================= */
+const SN={meta:null,itens:null,carregando:null,nd:null,tmp:null};
+const urlBlobSn=id=>(window.BLOB||('/_'+'blob/'))+id;
+const UFS_SN=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+async function snMeta(){if(SN.meta!==null)return SN.meta;try{const d=await store.doc('sinapi/base').get();SN.meta=d.exists?d.data():false}catch(e){SN.meta=false}return SN.meta}
+async function snItens(){if(SN.itens)return SN.itens;const m=await snMeta();if(!m||!m.asset)return null;
+  if(!SN.carregando)SN.carregando=fetch(urlBlobSn(m.asset)).then(r=>{if(!r.ok)throw 0;return r.json()}).then(j=>{SN.itens=j.itens||[];SN.nd=null;return SN.itens}).catch(e=>{SN.carregando=null;return null});return SN.carregando}
+function snNum(v){if(typeof v==='number')return v;if(v==null)return NaN;const s=String(v).trim().replace(/[R$\s]/g,'');if(!s)return NaN;return parseFloat(s.includes(',')?s.replace(/\./g,'').replace(',','.'):s)}
+function snBusca(q){const L=SN.itens||[];q=normTxt(q).trim();if(!q)return[];if(!SN.nd)SN.nd=L.map(x=>normTxt(x[1]));
+  if(/^\d[\d./-]*$/.test(q)){const r=L.filter(x=>String(x[0]).startsWith(q));return r.sort((a,b)=>String(a[0]).length-String(b[0]).length).slice(0,40)}
+  const W=q.split(/\s+/).filter(Boolean),r=[];for(let i=0;i<L.length&&r.length<200;i++)if(W.every(w=>SN.nd[i].includes(w)))r.push(L[i]);
+  return r.sort((a,b)=>(a[4]==='C'?0:1)-(b[4]==='C'?0:1)).slice(0,40)}
+/* ---- importar planilha ---- */
+function abrirSinapi(){SN.tmp=null;$('snOk').hidden=true;snTela();abrirModal('modalSn');snMeta().then(snTela)}
+function snTela(){const m=SN.meta;$('snBody').innerHTML=`<div class="obs" style="margin-bottom:10px">${m&&m.n?`📚 Base atual: <b>SINAPI ${esc(m.uf||'')} · ${esc(m.mes||'')}${m.desonTxt?' · '+esc(m.desonTxt):''}</b> · ${(+m.n).toLocaleString('pt-BR')} itens · importada em ${fd(String(m.em||'').slice(0,10))}`:'Nenhuma base SINAPI carregada ainda.'}</div>
+  <p style="font-size:.85rem;color:#334155;margin-bottom:10px">1) No site da Caixa (<b>caixa.gov.br/sinapi</b>) baixe a planilha de referência do mês em <b>Excel</b>. Se vier em .zip, extraia antes.<br>2) Escolha o arquivo aqui. O programa encontra as composições e os insumos e pede o estado.</p>
+  <input type="file" accept=".xlsx,.xls,.xlsm,.csv" onchange="snArquivo(this)"><div id="snOpc" style="margin-top:12px"></div>`}
+async function snArquivo(inp){const f=inp.files[0];if(!f)return;$('snOpc').innerHTML='<div class="obs">⏳ Lendo a planilha… (pode levar alguns segundos)</div>';
+  let X;try{X=await carregarXLSX()}catch(e){$('snOpc').innerHTML='';aviso('Não consegui carregar o leitor de Excel. Verifique a internet e tente de novo.');return}
+  try{const wb=X.read(await f.arrayBuffer(),{type:'array'});const abas=snAnalisa(wb,X);{const n=normTxt(f.name),t=/compos/.test(n)?'C':/insum/.test(n)?'I':'';if(t)abas.forEach(x=>{if(!x.tipo)x.tipo=t})}
+    if(!abas.length){$('snOpc').innerHTML='<div class="alerta al-amar">Não encontrei colunas de código, descrição e preço nessa planilha. Confira se é a planilha de referência do SINAPI em Excel.</div>';return}
+    const ufs=[...new Set(abas.flatMap(a=>Object.keys(a.ufc)))],nm=f.name,mm=nm.match(/(20\d{2})[_\-.\s]?(\d{2})(?!\d)/)||nm.match(/(\d{2})[_\-.\s]?(20\d{2})/);
+    let mes='';if(mm)mes=/^20/.test(mm[1])?mm[2]+'/'+mm[1]:mm[1]+'/'+mm[2];
+    const temDes=abas.some(a=>/^[ic](sd|cd|se)$/i.test(a.nm.trim()));
+    SN.tmp={abas,ufs,nome:nm};
+    $('snOpc').innerHTML=`${ufs.length?`<div class="fg"><label>Estado (UF)</label><select id="snUf" onchange="snContar()">${ufs.map(u=>`<option ${u==='MA'?'selected':''}>${u}</option>`).join('')}</select></div>`:''}
+      ${temDes?`<div class="fg"><label>Encargos sociais</label><select id="snDes" onchange="snMarcaDes();snContar()"><option value="SD">Sem desoneração</option><option value="CD">Com desoneração</option><option value="SE">Sem encargos</option></select></div>`:''}
+      <div class="fg"><label>Mês de referência</label><input id="snMes" value="${esc(mes)}" placeholder="MM/AAAA"></div>
+      <label style="font-size:.78rem;font-weight:700;color:#64748b;text-transform:uppercase">Abas a importar</label>
+      <div id="snAbas">${abas.map((a,i)=>`<label class="check" style="margin:4px 0"><input type="checkbox" data-i="${i}" ${a.def?'checked':''} onchange="snContar()"> ${esc(a.nm)} <span class="obs" id="snN${i}"></span></label>`).join('')}</div>
+      <div class="obs" id="snTot" style="margin-top:6px"></div>`;
+    if(temDes)snMarcaDes();snContar();$('snOk').hidden=false}
+  catch(e){$('snOpc').innerHTML='';aviso('Não consegui ler esse arquivo. Envie a planilha do SINAPI em Excel (.xlsx).')}}
+function snAnalisa(wb,X){const abas=[];wb.SheetNames.forEach(nm=>{let rows;try{rows=X.utils.sheet_to_json(wb.Sheets[nm],{header:1,raw:true,defval:null,blankrows:false})}catch(e){return}
+    let hi=-1;for(let r=0;r<Math.min(rows.length,60);r++){const R=(rows[r]||[]).map(v=>typeof v==='string'?normTxt(v):'');if(R.some(v=>/^cod|codigo/.test(v))&&R.some(v=>/descri/.test(v))){hi=r;break}}
+    if(hi<0)return;const Hn=(rows[hi]||[]).map(v=>normTxt(v==null?'':String(v)).trim()),f=re=>Hn.findIndex(v=>re.test(v));
+    const cC=f(/^cod|codigo/),cD=f(/descri/),cU=f(/^unid|^und\b|^un\b|unidade/);const ufc={};
+    for(let r=Math.max(0,hi-3);r<=Math.min(rows.length-1,hi+1);r++)(rows[r]||[]).forEach((v,ix)=>{const t=String(v==null?'':v).trim().toUpperCase();if(UFS_SN.includes(t)&&ix!==cC&&ix!==cD&&ix!==cU&&ufc[t]==null)ufc[t]=ix});
+    let cP=-1;if(!Object.keys(ufc).length)for(let ix=Hn.length-1;ix>=0;ix--)if(/custo|preco|valor/.test(Hn[ix])&&!/%|percent|mao de obra|material|equip|servico terc/.test(Hn[ix])){cP=ix;break}
+    if(cC<0||cD<0||(cP<0&&!Object.keys(ufc).length))return;
+    const n=normTxt(nm),tipo=/compo|^c(sd|cd|se)$|sintet/.test(n)?'C':/insu|^i(sd|cd|se)$/.test(n)?'I':'';
+    abas.push({nm,rows,ini:hi+1,cC,cD,cU,cP,ufc,tipo,def:!/anal|menu|busca|famil|manten/.test(n)})});return abas}
+function snMarcaDes(){const d=$('snDes').value;document.querySelectorAll('#snAbas input').forEach(c=>{const a=SN.tmp.abas[+c.dataset.i],m=a.nm.trim().match(/^[ic](sd|cd|se)$/i);if(m)c.checked=m[1].toUpperCase()===d})}
+function snExtrai(a,uf){const col=Object.keys(a.ufc).length?a.ufc[uf]:a.cP;if(col==null||col<0)return[];const out=[];
+  for(let r=a.ini;r<a.rows.length;r++){const R=a.rows[r];if(!R)continue;let c=R[a.cC];if(c==null||c==='')continue;c=String(c).trim();if(!/^\d[\d./-]*$/.test(c))continue;
+    const d=R[a.cD];if(!d)continue;const p=snNum(R[col]);if(isNaN(p)||p<0)continue;out.push([c,String(d).trim(),a.cU>=0&&R[a.cU]!=null?String(R[a.cU]).trim():'',Math.round(p*100)/100,a.tipo])}return out}
+function snSel(){const uf=$('snUf')?$('snUf').value:'',M=new Map();document.querySelectorAll('#snAbas input').forEach(c=>{const a=SN.tmp.abas[+c.dataset.i],L=snExtrai(a,uf);$('snN'+c.dataset.i).textContent='· '+L.length.toLocaleString('pt-BR')+' itens';if(c.checked)L.forEach(x=>M.set(x[4]+x[0],x))});return[...M.values()]}
+function snContar(){if(!SN.tmp)return;const L=snSel();$('snTot').innerHTML=`Total a importar: <b>${L.length.toLocaleString('pt-BR')}</b> itens (${L.filter(x=>x[4]==='C').length.toLocaleString('pt-BR')} composições, ${L.filter(x=>x[4]==='I').length.toLocaleString('pt-BR')} insumos)`}
+async function snImportar(){if(!SN.tmp)return;const L=snSel();if(!L.length){aviso('Nenhum item encontrado nas abas marcadas.');return}
+  const uf=$('snUf')?$('snUf').value:'',mes=$('snMes').value.trim(),des=$('snDes')?$('snDes').value:'',desonTxt={SD:'sem desoneração',CD:'com desoneração',SE:'sem encargos'}[des]||'';
+  let A=assetsCap;try{if(!A&&window.claude)A=await window.claude.use('assets')}catch(e){}
+  if(!A){aviso('Só quem pode editar o programa consegue importar a base.');return}
+  $('snOk').disabled=true;$('snOk').textContent='Salvando…';
+  try{const r=await A.upload(new Blob([JSON.stringify({uf,mes,des,itens:L})],{type:'application/json'}),{type:'application/json'});
+    const meta={asset:r.id,uf,mes,des,desonTxt,n:L.length,arquivo:SN.tmp.nome,em:new Date().toISOString()};await store.doc('sinapi/base').set(meta);
+    SN.meta=meta;SN.itens=L;SN.nd=null;SN.carregando=null;SN.tmp=null;fecharModal('modalSn');toast(`📚 Base SINAPI ${uf} ${mes} importada: ${L.length.toLocaleString('pt-BR')} itens`);render()}
+  catch(e){aviso('Não consegui salvar a base: '+(e&&e.message||e))}finally{$('snOk').disabled=false;$('snOk').textContent='Importar'}}
+/* ---- orçamento da obra ---- */
+function orcS(o){if(!o.orcS||typeof o.orcS!=='object')o.orcS={bdi:0,linhas:[]};if(!Array.isArray(o.orcS.linhas))o.orcS.linhas=[];return o.orcS}
+function orcNum(L){let e=0,i=0;return L.map(l=>{if(l.tipo==='e'){e++;i=0;return String(e)}i++;return e?e+'.'+i:String(i)})}
+function orcCalc(o){const S=orcS(o),b=(+S.bdi||0)/100;let custo=0;const it=S.linhas.filter(l=>l.tipo!=='e').map(l=>{const pu=r2((+l.custo||0)*(1+b)),tot=r2(pu*(+l.qtd||0));custo+=(+l.custo||0)*(+l.qtd||0);return{l,pu,tot}});return{S,b,it,custo:r2(custo),total:r2(soma(it,x=>x.tot))}}
+function orcEtTot(C,ix){let t=0;for(let j=ix+1;j<C.S.linhas.length&&C.S.linhas[j].tipo!=='e';j++){const x=C.it.find(y=>y.l===C.S.linhas[j]);if(x)t+=x.tot}return r2(t)}
+function curvaABC(it){const T=soma(it,x=>x.tot)||1;let ac=0;return it.filter(x=>x.tot>0).sort((a,b)=>b.tot-a.tot).map(x=>{const antes=ac/T;ac+=x.tot;return{...x,p:x.tot/T,pa:ac/T,cl:antes<0.8?'A':antes<0.95?'B':'C'}})}
+function btnsOrc(oid,lid){return `<span class="acoes"><button class="ac ac-e" onclick="moverOrc('${oid}','${lid}',-1)" title="Subir">⬆️</button><button class="ac ac-e" onclick="moverOrc('${oid}','${lid}',1)" title="Descer">⬇️</button><button class="ac ac-e" onclick="editarOrc('${oid}','${lid}')" title="Editar">✏️</button><button class="ac ac-x" onclick="excluirOrc('${oid}','${lid}')" title="Excluir">🗑️</button></span>`}
+function renderOrcS(o,box){const C=orcCalc(o),N=orcNum(C.S.linhas),m=SN.meta;if(m===null)snMeta().then(()=>{if(db.ui.aba==='orc')render()});
+  box.innerHTML=`<section class="card"><div class="card-head"><h2>📐 Orçamento</h2><div class="obra-btns"><button class="btn btn-verde btn-sm" onclick="abrirOrcItem('${o.id}')">+ Item</button><button class="btn btn-cinza btn-sm" onclick="abrirOrcEt('${o.id}')">+ Etapa</button>${C.it.length?`<button class="btn btn-cinza btn-sm" onclick="imprimirOrcS('${o.id}')">🖨️ Imprimir</button>`:''}</div></div>
+    <div class="obs" style="margin-bottom:10px">📚 ${m&&m.n?`Base SINAPI <b>${esc(m.uf||'')} ${esc(m.mes||'')}</b>${m.desonTxt?' · '+esc(m.desonTxt):''} · ${(+m.n).toLocaleString('pt-BR')} itens`:m===null?'carregando base…':'Nenhuma base SINAPI carregada'} · <a href="#" onclick="abrirSinapi();return false">${m&&m.n?'trocar base':'importar planilha SINAPI'}</a></div>
+    <div class="fg-row"><div class="fg"><label>BDI (%)</label><input inputmode="decimal" value="${String(+C.S.bdi||0).replace('.',',')}" onchange="setBdiOrc('${o.id}',this.value)"></div><div class="fg"></div></div>
+    <div class="kpi-grid">${kpi('🧱 Custo direto',fm(C.custo),'cinza',C.it.length+' item(ns)')}${kpi('📈 BDI',fm(r2(C.total-C.custo)),'amarelo',String(+C.S.bdi||0).replace('.',',')+'%')}${kpi('💰 Preço total',fm(C.total),'azul','com BDI')}</div>
+    ${C.S.linhas.length?`<div class="tabela"><table><thead><tr><th>Item</th><th>Código</th><th>Descrição</th><th class="c">Un</th><th class="r">Qtde</th><th class="r">Custo unit.</th><th class="r">Preço c/ BDI</th><th class="r">Total</th><th></th></tr></thead><tbody>
+      ${C.S.linhas.map((l,ix)=>{if(l.tipo==='e')return `<tr class="orc-et"><td><b>${N[ix]}</b></td><td colspan="6"><b>${esc(l.desc)}</b></td><td class="r"><b>${fm(orcEtTot(C,ix))}</b></td><td>${btnsOrc(o.id,l.id)}</td></tr>`;
+        const x=C.it.find(y=>y.l===l);return `<tr><td>${N[ix]}</td><td>${l.cod?esc(l.cod)+'<div class="obs">'+esc(l.fonte||'SINAPI')+'</div>':'<span class="obs">próprio</span>'}</td><td style="min-width:180px">${esc(l.desc)}</td><td class="c">${esc(l.un||'')}</td><td class="r">${fq(+l.qtd||0)}</td><td class="r">${fm(+l.custo||0)}</td><td class="r">${fm(x.pu)}</td><td class="r"><b>${fm(x.tot)}</b></td><td>${btnsOrc(o.id,l.id)}</td></tr>`}).join('')}
+    </tbody><tfoot><tr><td colspan="7">Total com BDI</td><td class="r">${fm(C.total)}</td><td></td></tr></tfoot></table></div>`:'<div class="vazio">Monte o orçamento: crie etapas (ex.: Serviços preliminares, Pintura) e adicione os itens buscando pelo código ou nome na base SINAPI, ou como item próprio.</div>'}
+    ${C.it.length?`<div class="obra-btns" style="margin-top:12px">${o.boletins.length?'':`<button class="btn btn-azul btn-sm" onclick="orcParaBoletim('${o.id}')">📏 Usar como planilha do Boletim</button>`}${m&&m.n&&C.it.some(x=>x.l.cod)?`<button class="btn btn-cinza btn-sm" onclick="atualizarPrecosOrc('${o.id}')">🔄 Atualizar preços pela base</button>`:''}</div>`:''}
+  </section>${C.it.length?blocoABC(C,false):''}`}
+function blocoABC(C,print){const A=curvaABC(C.it),cnt=k=>A.filter(x=>x.cl===k),v=k=>soma(cnt(k),x=>x.tot),T=soma(A,x=>x.tot)||1;
+  const res=['A','B','C'].map(k=>`<span class="abc-tag abc-${k}">Classe ${k}: ${cnt(k).length} item(ns) · ${fm(v(k))} (${fp(v(k)/T*100)})</span>`).join(' ');
+  const tab=`<table><thead><tr><th class="c">#</th><th>Descrição</th><th class="r">Total</th><th class="r">%</th><th class="r">% acum.</th><th class="c">Classe</th></tr></thead><tbody>${A.map((x,i)=>`<tr><td class="c">${i+1}</td><td style="min-width:180px">${esc(x.l.desc)}</td><td class="r">${fm(x.tot)}</td><td class="r">${fp(x.p*100)}</td><td class="r">${fp(x.pa*100)}</td><td class="c"><span class="abc-tag abc-${x.cl}">${x.cl}</span></td></tr>`).join('')}</tbody></table>`;
+  if(print)return `<h2>📊 Curva ABC</h2><p class="sub">Classe A: itens que somam até 80% do valor · B: de 80% a 95% · C: os 5% restantes.</p><div style="margin:6px 0 10px">${res}</div>${tab}`;
+  return `<section class="card"><h2>📊 Curva ABC</h2><p class="obs" style="margin:-4px 0 10px">Os itens que mais pesam no orçamento. <b>Classe A</b> soma até 80% do valor: é onde negociar preço e controlar mais de perto.</p><div style="margin-bottom:10px">${res}</div><div class="tabela">${tab}</div></section>`}
+function setBdiOrc(oid,v){const o=db.obras.find(x=>x.id===oid);if(!o)return;orcS(o).bdi=Math.max(0,snNum(v)||0);salvar();render()}
+let oiCtx=null,oiTmr=null;
+function abrirOrcItem(oid,lid){const o=db.obras.find(x=>x.id===oid);if(!o)return;const l=lid?orcS(o).linhas.find(x=>x.id===lid):null;oiCtx={oid,lid:l?l.id:null};
+  $('oiTit').textContent=l?'✏️ Editar item':'📐 Novo item do orçamento';$('oiBusca').value='';$('oiRes').innerHTML='';
+  $('oiCod').value=l?l.cod||'':'';$('oiFonte').value=l?l.fonte||'':'SINAPI';$('oiDesc').value=l?l.desc:'';$('oiUn').value=l?l.un||'':'';$('oiQtd').value=l?String(+l.qtd||0).replace('.',','):'';$('oiCusto').value=l?ms(+l.custo||0):'';
+  abrirModal('modalOrcIt');snItens();if(!l&&window.innerWidth>700)setTimeout(()=>$('oiBusca').focus(),80)}
+function oiBuscar(){clearTimeout(oiTmr);oiTmr=setTimeout(async()=>{const q=$('oiBusca').value;if(!q.trim()){$('oiRes').innerHTML='';return}
+  if(!SN.itens){$('oiRes').innerHTML='<div class="obs">⏳ Carregando a base SINAPI…</div>';const L=await snItens();if(!L){$('oiRes').innerHTML='<div class="obs">Nenhuma base SINAPI carregada. <a href="#" onclick="fecharModal(\'modalOrcIt\');abrirSinapi();return false">Importar planilha</a> ou preencha o item próprio abaixo.</div>';return}}
+  const R=snBusca(q);SN.res=R;$('oiRes').innerHTML=R.length?R.map((x,i)=>`<button type="button" class="oi-r" onclick="oiEscolhe(${i})"><b>${esc(x[0])}</b> ${x[4]==='C'?'<span class="obs">composição</span>':x[4]==='I'?'<span class="obs">insumo</span>':''} · ${esc(x[2])} · <b>${fm(x[3])}</b><div>${esc(x[1])}</div></button>`).join(''):'<div class="obs">Nada encontrado.</div>'},250)}
+function oiEscolhe(i){const x=(SN.res||[])[i];if(!x)return;$('oiCod').value=x[0];$('oiFonte').value='SINAPI';$('oiDesc').value=x[1];$('oiUn').value=x[2];$('oiCusto').value=ms(x[3]);$('oiRes').innerHTML='';$('oiBusca').value='';setTimeout(()=>$('oiQtd').focus(),50)}
+function salvarOrcItem(){const o=db.obras.find(x=>x.id===(oiCtx&&oiCtx.oid));if(!o)return;const desc=$('oiDesc').value.trim(),qtd=snNum($('oiQtd').value);
+  if(!desc){aviso('Informe a descrição do item.');return}if(isNaN(qtd)||qtd<=0){aviso('Informe a quantidade.');return}
+  const S=orcS(o),d={tipo:'i',cod:$('oiCod').value.trim(),fonte:$('oiFonte').value.trim()||($('oiCod').value.trim()?'SINAPI':''),desc,un:$('oiUn').value.trim(),qtd,custo:parseMoeda($('oiCusto').value)};
+  const l=oiCtx.lid&&S.linhas.find(x=>x.id===oiCtx.lid);if(l)Object.assign(l,d);else S.linhas.push({id:novoId('orc'),...d});
+  salvar();fecharModal('modalOrcIt');render();toast(l?'✅ Item atualizado':'✅ Item adicionado')}
+let oeCtx=null;
+function abrirOrcEt(oid,lid){const o=db.obras.find(x=>x.id===oid);if(!o)return;const l=lid?orcS(o).linhas.find(x=>x.id===lid):null;oeCtx={oid,lid:l?l.id:null};$('oeNome').value=l?l.desc:'';abrirModal('modalOrcEt');setTimeout(()=>$('oeNome').focus(),80)}
+function salvarOrcEt(){const o=db.obras.find(x=>x.id===(oeCtx&&oeCtx.oid));if(!o)return;const n=$('oeNome').value.trim();if(!n){aviso('Informe o nome da etapa.');return}
+  const S=orcS(o),l=oeCtx.lid&&S.linhas.find(x=>x.id===oeCtx.lid);if(l)l.desc=n;else S.linhas.push({id:novoId('orc'),tipo:'e',desc:n});salvar();fecharModal('modalOrcEt');render()}
+function editarOrc(oid,lid){const o=db.obras.find(x=>x.id===oid),l=o&&orcS(o).linhas.find(x=>x.id===lid);if(!l)return;if(l.tipo==='e')abrirOrcEt(oid,lid);else abrirOrcItem(oid,lid)}
+function moverOrc(oid,lid,d){const o=db.obras.find(x=>x.id===oid);if(!o)return;const L=orcS(o).linhas,i=L.findIndex(x=>x.id===lid),j=i+d;if(i<0||j<0||j>=L.length)return;[L[i],L[j]]=[L[j],L[i]];salvar();render()}
+async function excluirOrc(oid,lid){const o=db.obras.find(x=>x.id===oid);if(!o)return;const S=orcS(o),l=S.linhas.find(x=>x.id===lid);if(!l)return;
+  if(!await confirmar('Excluir',l.tipo==='e'?`Excluir a etapa "${l.desc}"? Os itens dela continuam no orçamento.`:`Excluir "${l.desc}" do orçamento?`,'Excluir',true))return;S.linhas=S.linhas.filter(x=>x.id!==lid);salvar();render()}
+async function atualizarPrecosOrc(oid){const o=db.obras.find(x=>x.id===oid);if(!o)return;const L=await snItens();if(!L){aviso('Base SINAPI não carregada.');return}
+  const M=new Map();L.forEach(x=>{if(!M.has(x[0])||x[4]==='C')M.set(x[0],x)});let n=0;orcS(o).linhas.forEach(l=>{if(l.tipo!=='e'&&l.cod&&/sinapi/i.test(l.fonte||'SINAPI')){const x=M.get(l.cod);if(x&&x[3]!==+l.custo){l.custo=x[3];n++}}});
+  if(n){salvar();render()}toast(n?`🔄 ${n} preço(s) atualizado(s) pela base ${SN.meta.mes||''}`:'Nenhum preço mudou')}
+async function orcParaBoletim(oid){const o=db.obras.find(x=>x.id===oid);if(!o)return;const C=orcCalc(o);if(o.boletins.length){aviso('Esta obra já tem boletins de medição; a planilha não pode ser trocada.');return}
+  if(!await confirmar('📏 Usar como planilha do Boletim',`${o.itens.length?'A planilha de serviços atual será substituída. ':''}Os ${C.it.length} itens do orçamento (com BDI, total ${fm(C.total)}) viram a planilha de serviços do Boletim e do Cronograma.${o.valorContrato&&Math.abs(o.valorContrato-C.total)>1?` O valor do contrato (${fm(o.valorContrato)}) não muda.`:''}`,'Usar'))return;
+  o.itens=C.it.filter(x=>+x.l.qtd>0).map(x=>({id:novoId('it'),servico:x.l.desc,un:x.l.un||'UN',qtd:+x.l.qtd,preco:x.pu,cod:x.l.cod||''}));if(!o.valorContrato)o.valorContrato=C.total;salvar();render();toast('📏 Planilha do Boletim criada a partir do orçamento')}
+function imprimirOrcS(oid){const o=db.obras.find(x=>x.id===oid);if(!o)return;const C=orcCalc(o),N=orcNum(C.S.linhas),D=dadosBol(o),m=SN.meta;
+  const h=`<div class="top"><div><h1>ORÇAMENTO – ${esc(String(D.obra||o.nome).toUpperCase())}</h1><div class="sub">${esc(db.config.empresa)}${db.config.cnpj?' · CNPJ '+esc(db.config.cnpj):''}${D.contratante?' · Contratante: '+esc(D.contratante):''}${D.local?' · '+esc(D.local):''} · ${fd(hoje())}</div></div></div>
+  <div class="box">${kp('Base de preços',m&&m.n?'SINAPI '+esc(m.uf||'')+' '+esc(m.mes||'')+(m.desonTxt?' ('+esc(m.desonTxt)+')':''):'—')}${kp('Custo direto',fm(C.custo))}${kp('BDI',String(+C.S.bdi||0).replace('.',',')+'%')}${kp('Preço total',fm(C.total))}</div>
+  <table><thead><tr><th>Item</th><th>Código</th><th>Fonte</th><th>Descrição</th><th class="c">Un</th><th class="r">Qtde</th><th class="r">Custo unit.</th><th class="r">Preço unit. c/ BDI</th><th class="r">Total</th></tr></thead><tbody>
+  ${C.S.linhas.map((l,ix)=>{if(l.tipo==='e')return `<tr style="background:#eef2ff"><td><b>${N[ix]}</b></td><td colspan="7"><b>${esc(l.desc)}</b></td><td class="r"><b>${fm(orcEtTot(C,ix))}</b></td></tr>`;const x=C.it.find(y=>y.l===l);
+    return `<tr><td>${N[ix]}</td><td>${esc(l.cod||'')}</td><td>${esc(l.cod?(l.fonte||'SINAPI'):'Próprio')}</td><td>${esc(l.desc)}</td><td class="c">${esc(l.un||'')}</td><td class="r">${fq(+l.qtd||0)}</td><td class="r">${fm(+l.custo||0)}</td><td class="r">${fm(x.pu)}</td><td class="r">${fm(x.tot)}</td></tr>`}).join('')}
+  </tbody><tfoot><tr><td colspan="8">TOTAL COM BDI</td><td class="r">${fm(C.total)}</td></tr></tfoot></table>${blocoABC(C,true)}`;
+  abrirImpressao('Orçamento '+o.nome,h,true)}
 function renderCrono(o,box){
   if(!o.itens.length){box.innerHTML=`<section class="card"><h2>🗓️ Cronograma</h2><div class="vazio">Esta obra ainda não tem a planilha de serviços. Cadastre os itens na aba <b>📏 Boletim</b> (ou importe a planilha) para montar o cronograma.</div></section>`;return}
   const C=cronoObra(o),L=cronoItens(o),T=cronoTotal(L),H=hoje(),dif=T.esp!=null?(T.ex-T.esp)*100:null;
