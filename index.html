@@ -507,7 +507,7 @@ details.cf-sec{border:1px solid var(--linha);border-radius:12px;margin-bottom:10
     <div class="fg" id="pgMesBox"><label>Referente ao mês</label><input type="month" id="pgMes" onchange="pagMesManual=true;pagUI()"></div>
     <div class="fg-row"><div class="fg"><label id="pgTotalLb">Valor (R$) *</label><input id="pgTotal" inputmode="numeric" placeholder="0,00" oninput="maskMoeda(this);pagUI()"></div>
       <div class="fg"><label>Situação</label><select id="pgSit"><option value="pago">✅ Pago</option><option value="pendente">⏳ Pendente (a pagar)</option></select></div></div>
-    <div class="fg" id="pgAbaterBox" hidden><label>Descontar este vale em</label><select id="pgAbater" onchange="const g=pagamentoPorId(this.value);if(g&&g.tipoPag!=='empreitada'){$('pgMes').value=refDoGasto(g);pagMesManual=true}"></select><div class="obs" style="margin-top:4px">Escolha o pagamento (mês) de onde o vale vai ser abatido. Deixe em "próximo pagamento" para descontar automaticamente no próximo que você lançar.</div></div>
+    <div class="fg" id="pgAbaterBox" hidden><label>Descontar este vale no pagamento de</label><select id="pgAbater" onchange="const v=this.value,g=pagamentoPorId(v),k=v.startsWith('m:')?v.slice(2):(g&&g.tipoPag!=='empreitada'?refDoGasto(g):'');if(k){$('pgMes').value=k;pagMesManual=true}"></select><div class="obs" style="margin-top:4px">Escolha o mês do salário em que o vale vai ser descontado. Ele aparece nos descontos do recibo desse mês.</div></div>
     <div class="pg-vale" id="pgValeBox" hidden><div id="pgValeTxt"></div><label class="check" id="pgValeChk" style="margin:6px 0 0"><input type="checkbox" id="pgDescVale" checked onchange="pagUI()"> Descontar os vales neste pagamento</label></div>
     <div class="fg"><label>Descrição</label><input id="pgDesc" oninput="pagDescManual=true"></div>
     <div class="fg-row"><div class="fg"><label>Categoria</label><select id="pgCat"></select></div><div class="fg"><label>Forma de pagamento</label><select id="pgForma"></select></div></div>
@@ -2003,7 +2003,7 @@ function editarPagamento(oid,gid){const o=db.obras.find(x=>x.id===oid),g=o&&o.ga
   $('tPag').textContent='✏️ Editar pagamento – '+p.nome;$('pgObra').value=oid;$('pgData').value=g.data;$('pgTipo').value=t;$('pgMes').value=g.refMes||String(g.data).slice(0,7);
   $('pgDias').value=t==='diaria'?String(g.qtd).replace('.',','):'';$('pgUnit').value=g.valorUnit?ms(g.valorUnit):'';$('pgTotal').value=ms(g.bruto||g.valorTotal);$('pgDesc').value=g.descricao;
   if(![...$('pgCat').options].some(x=>x.value===g.categoria))$('pgCat').insertAdjacentHTML('beforeend',`<option>${esc(g.categoria)}</option>`);$('pgCat').value=g.categoria;
-  $('pgForma').value=g.pagamento||'';$('pgSit').value=g.pendente?'pendente':'pago';pagAbaterIni=g.descontadoEm||'';$('pgAbater').innerHTML='';pagUI()}
+  $('pgForma').value=g.pagamento||'';$('pgSit').value=g.pendente?'pendente':'pago';pagAbaterIni=g.descontadoEm||(ehVale(g)&&g.refMes?'m:'+g.refMes:'');$('pgAbater').innerHTML='';pagUI()}
 async function togglePendGasto(oid,gid){const o=db.obras.find(x=>x.id===oid),g=o&&o.gastos.find(x=>x.id===gid);if(!g)return;
   if(g.pendente){g.pendente=false;g.pagoEm=hoje();g.pagoTs=new Date().toISOString();toast('✅ Marcado como pago')}else{g.pendente=true;delete g.pagoEm;delete g.pagoTs;toast('⏳ Marcado como pendente')}salvar();render()}
 /* previsão do mês + lançar pagamento */
@@ -2076,11 +2076,17 @@ function pagUI(){if($('pgTipo').value==='vale'&&!pagEdit&&$('pgData').value&&!pa
   box.hidden=false;$('pgValeChk').style.display='';const d=$('pgDescVale').checked?Math.min(vt,bruto||vt):0;
   $('pgValeTxt').innerHTML=`🎟️ Vales em aberto: <b>${fm(vt)}</b> <span class="obs">(${V.map(g=>fd(g.data)+' '+fm(g.valorTotal)).join(' · ')})</span>${$('pgDescVale').checked?`<br>Valor bruto ${fm(bruto)} − vales ${fm(d)} = <b>líquido a pagar ${fm(Math.max(0,bruto-d))}</b>`:''}`}
 let pagAbaterIni='';
-function abaterUI(p){const sel=$('pgAbater'),cur=sel.options.length?sel.value:pagAbaterIni,eid=pagEdit&&pagEdit.gid;
-  const L=[];db.obras.forEach(o=>o.gastos.forEach(g=>{if(normTxt(g.pessoa)===normTxt(p.nome)&&!ehVale(g)&&g.id!==eid)L.push(g)}));
-  L.sort((a,b)=>String(b.data).localeCompare(String(a.data)));const V=L.slice(0,20);if(cur&&!V.some(g=>g.id===cur)){const x=L.find(g=>g.id===cur);if(x)V.push(x)}
-  sel.innerHTML='<option value="">⏭️ Próximo pagamento (automático)</option>'+V.map(g=>`<option value="${g.id}">${fd(g.data)}${g.refMes?' · ref. '+nomeMesKey(g.refMes):''} · ${esc(g.descricao)} · a pagar ${fm(g.valorTotal)}${g.pendente?' · ⏳ pendente':''}</option>`).join('');
-  sel.value=V.some(g=>g.id===cur)?cur:''}
+function abaterUI(p){const sel=$('pgAbater'),cur=sel.options.length?sel.value:pagAbaterIni,eid=pagEdit&&pagEdit.gid,tipo=tipoPessoa(p);
+  const ehPag=g=>normTxt(g.pessoa)===normTxt(p.nome)&&!ehVale(g)&&g.id!==eid&&!/viag|passag/.test(normTxt(g.categoria))&&(g.tipoPag?g.tipoPag===tipo:tipoDoGasto(g,p)===tipo);
+  const G=[];db.obras.forEach(o=>o.gastos.forEach(g=>{if(ehPag(g))G.push(g)}));
+  const base=($('pgData').value||hoje()).slice(0,7),[y,m]=base.split('-').map(Number),K=[];for(let d=1;d>=-2;d--){const t=new Date(y,m-1+d,1);K.push(t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0'))}
+  const curK=cur.startsWith('m:')?cur.slice(2):(pagamentoPorId(cur)?refDoGasto(pagamentoPorId(cur)):'');if(curK&&!K.includes(curK))K.push(curK);
+  const nomeT=tipo==='diaria'?'Diárias':tipo==='empreitada'?'Empreitada':'Salário',ops=['<option value="">📅 Pelo mês do vale (automático)</option>'];
+  K.forEach(k=>{const GM=G.filter(g=>refDoGasto(g)===k),pend=GM.filter(g=>g.pendente),pago=soma(GM.filter(g=>!g.pendente),g=>+g.valorTotal||0);
+    if(pend.length)pend.forEach(g=>ops.push(`<option value="${g.id}">${nomeT} de ${nomeMesKey(k)} · ⏳ lançado a pagar ${fm(g.valorTotal)} (desconta nele)</option>`));
+    else ops.push(`<option value="m:${k}">${nomeT} de ${nomeMesKey(k)}${pago?' · já pago '+fm(pago):' · ainda não pago'}</option>`)});
+  if(cur&&!cur.startsWith('m:')&&pagamentoPorId(cur)&&!ops.some(o=>o.includes(`"${cur}"`))){const g=pagamentoPorId(cur);ops.push(`<option value="${g.id}">${fd(g.data)} · ${esc(g.descricao)} · ${fm(g.valorTotal)}</option>`)}
+  sel.innerHTML=ops.join('');sel.value=[...sel.options].some(o=>o.value===cur)?cur:''}
 function pagamentoPorId(id){let r=null;db.obras.forEach(o=>o.gastos.forEach(g=>{if(g.id===id)r=g}));return r}
 function aplicarValeEm(v,pid){const pg=pagamentoPorId(pid);if(!pg)return true;
   if(v.valorTotal>(+pg.valorTotal||0)+0.001){aviso(`O vale (${fm(v.valorTotal)}) é maior que o valor a pagar nesse pagamento (${fm(pg.valorTotal)}). Escolha outro pagamento.`);return false}
