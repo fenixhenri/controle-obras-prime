@@ -1737,7 +1737,7 @@ function renderObra(){
       <div class="ind"><div class="ind-l"><span>Gasto total</span><b class="neg">${fm(cT.gasto)}</b></div><div class="obs">${cT.contrato?fp(cT.gasto/cT.contrato*100)+' do contrato':''}</div></div>
       <div class="ind"><div class="ind-l"><span>Resultado atual</span><b class="${cT.resultado>=0?'pos':'neg'}">${fm(cT.resultado)}</b></div><div class="obs">medido − gasto${cT.impostos?" − impostos":""} · margem ${fp(cT.margem)}</div></div>
       <div class="ind"><div class="ind-l"><span>Capital próprio empatado</span><b class="${cT.capital>0?'neg':'pos'}">${fm(cT.capital)}</b></div></div>
-      <div class="ind"><div class="ind-l"><span>Custo orçado</span><b>${cT.orcado?fm(cT.orcado):'<a href="#" onclick="abrirOrcamento();return false">definir</a>'}</b></div>
+      <div class="ind"><div class="ind-l"><span>Custo orçado</span><b>${cT.orcado?fm(cT.orcado)+' <a href="#" onclick="abrirOrcamento();return false" title="Editar custo orçado" style="text-decoration:none">✏️</a>':'<a href="#" onclick="abrirOrcamento();return false">definir</a>'}</b></div>
         ${cT.orcado?`<div class="barra"><i style="width:${Math.min(100,orcPct)}%;background:${orcPct>100?'var(--vermelho)':orcPct>85?'var(--amarelo)':'var(--verde)'}"></i></div><div class="obs">${fp(orcPct)} do orçado já gasto · margem orçada ${fp(cT.contrato?(cT.contrato-cT.orcado)/cT.contrato*100:null)}</div>`:''}</div>
       <div class="ind"><div class="ind-l"><span>Custo final projetado</span><b>${cT.custoProj!=null?fm(cT.custoProj):'—'}</b></div>
         <div class="obs">${cT.resProj!=null?`Resultado projetado <b class="${cT.resProj>=0?'pos':'neg'}">${fm(cT.resProj)}</b> (${fp(cT.margemProj)})`:'precisa de medição'}</div></div>
