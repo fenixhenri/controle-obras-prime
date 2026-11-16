@@ -619,7 +619,7 @@ details.cf-sec{border:1px solid var(--linha);border-radius:12px;margin-bottom:10
   <div class="modal-h"><h3>👤 Retirada do sócio</h3><button class="fechar" onclick="fecharModal('modalRet')">×</button></div>
   <div class="modal-b">
     <div class="fg-row"><div class="fg"><label>Data *</label><input type="date" id="rtData"></div><div class="fg"><label>Valor (R$) *</label><input id="rtValor" inputmode="numeric" placeholder="0,00" oninput="maskMoeda(this)"></div></div>
-    <div class="fg-row"><div class="fg"><label>Tipo</label><select id="rtTipo"><option value="prolabore">💼 Pró-labore</option><option value="retirada">💵 Retirada de lucro</option><option value="adiantamento">⏩ Adiantamento ao sócio</option></select></div><div class="fg"><label>Sócio</label><input id="rtSocio" placeholder="Ex: Augusto"></div></div>
+    <div class="fg-row"><div class="fg"><label>Tipo</label><select id="rtTipo"><option value="prolabore">💼 Pró-labore</option><option value="retirada">💵 Retirada de lucro</option><option value="adiantamento">⏩ Adiantamento ao sócio</option><option value="estorno">↩️ Estorno (sócio devolveu à empresa)</option></select></div><div class="fg"><label>Sócio</label><input id="rtSocio" placeholder="Ex: Augusto"></div></div>
     <div class="fg"><label>Observação</label><input id="rtObs" placeholder="opcional"></div>
     <div id="rtCompBox"><label style="font-size:.78rem;font-weight:700;color:var(--cinza);text-transform:uppercase">📎 Comprovante</label><div id="rtComps" class="dr-thumbs"></div>
       <label class="btn btn-cinza btn-sm" style="display:inline-block;margin-top:6px;cursor:pointer">📎 Anexar comprovante (foto ou PDF)<input type="file" accept="image/*,application/pdf" multiple style="display:none" onchange="addCompRet(this)"></label> <span class="obs" id="rtEnviando"></span></div>
@@ -3484,7 +3484,7 @@ function fixaPagaPor(key,id){const P=db.config.despPagPor||{};return (P[key]||{}
 function setFixaPor(key,id,soc,quieto){if(!db.config.despPagPor||typeof db.config.despPagPor!=='object')db.config.despPagPor={};const P=db.config.despPagPor;P[key]={...(P[key]||{})};if(soc)P[key][id]=soc;else delete P[key][id];if(!Object.keys(P[key]).length)delete P[key];if(!quieto){salvar();render()}}
 
 /* ----- retiradas ----- */
-const TIPOS_RET={prolabore:'💼 Pró-labore',retirada:'💵 Retirada de lucro',adiantamento:'⏩ Adiantamento ao sócio'};
+const TIPOS_RET={prolabore:'💼 Pró-labore',retirada:'💵 Retirada de lucro',adiantamento:'⏩ Adiantamento ao sócio',estorno:'↩️ Estorno (sócio devolveu)'};
 function retiradasMes(key){return arr('retiradas').filter(r=>String(r.d).startsWith(key))}
 function anosRet(){const s=new Set([new Date().getFullYear()]);arr('retiradas').forEach(r=>{const y=parseInt(String(r.d).slice(0,4),10);if(y)s.add(y)});return [...s].sort((a,b)=>b-a)}
 function optsAnoRet(sel){return `<option value="todos" ${sel==='todos'?'selected':''}>Todos os anos</option>`+anosRet().map(y=>`<option value="${y}" ${String(y)===String(sel)?'selected':''}>${y}</option>`).join('')}
@@ -3549,9 +3549,9 @@ async function lerComprovanteRet(blob){let sample=null;try{sample=window.claude&
     if(j.data&&/^\d{4}-\d{2}-\d{2}$/.test(j.data)){$('rtData').value=j.data;msgs.push('data '+fd(j.data))}
     if(j.favorecido&&!$('rtSocio').value.trim())$('rtSocio').value=String(j.favorecido).trim();
     if(msgs.length)toast('🔎 Preenchido do comprovante: '+msgs.join(' · ')+'. Confira antes de salvar.')}catch(e){}}
-function abrirRetirada(id){const r=id?arr('retiradas').find(x=>x.id===id):null;retEdit=r?r.id:'';retComps=r?[...(r.comp||[])]:[];$('rtCompBox').style.display=assetsCap?'':'none';$('rtSemComp').style.display=assetsCap?'none':'';setTimeout(compsRetUI,0);$('rtData').value=r?r.d:hoje();$('rtValor').value=r?ms(r.valor):'';$('rtTipo').value=r?r.tipo:'prolabore';$('rtSocio').value=r?r.socio||'':(db.ui.ultSocio||'');$('rtObs').value=r?r.obs||'':'';abrirModal('modalRet')}
+function abrirRetirada(id){const r=id?arr('retiradas').find(x=>x.id===id):null;retEdit=r?r.id:'';retComps=r?[...(r.comp||[])]:[];$('rtCompBox').style.display=assetsCap?'':'none';$('rtSemComp').style.display=assetsCap?'none':'';setTimeout(compsRetUI,0);$('rtData').value=r?r.d:hoje();$('rtValor').value=r?ms(Math.abs(r.valor)):'';$('rtTipo').value=r?r.tipo:'prolabore';$('rtSocio').value=r?r.socio||'':(db.ui.ultSocio||'');$('rtObs').value=r?r.obs||'':'';abrirModal('modalRet')}
 function salvarRetirada(){const valor=parseMoeda($('rtValor').value),d=$('rtData').value;if(!d||valor<=0){aviso('Informe a data e o valor.');return}
-  const dados={d,valor,tipo:$('rtTipo').value,socio:$('rtSocio').value.trim(),obs:$('rtObs').value.trim(),comp:[...retComps]};db.ui.ultSocio=dados.socio;const r=retEdit?arr('retiradas').find(x=>x.id===retEdit):null;if(r)Object.assign(r,dados);else arr('retiradas').push({id:novoId('ret'),criadoEm:new Date().toISOString(),...dados});salvar();fecharModal('modalRet');render()}
+  const dados={d,valor:$('rtTipo').value==='estorno'?-valor:valor,tipo:$('rtTipo').value,socio:$('rtSocio').value.trim(),obs:$('rtObs').value.trim(),comp:[...retComps]};db.ui.ultSocio=dados.socio;const r=retEdit?arr('retiradas').find(x=>x.id===retEdit):null;if(r)Object.assign(r,dados);else arr('retiradas').push({id:novoId('ret'),criadoEm:new Date().toISOString(),...dados});salvar();fecharModal('modalRet');render()}
 
 async function blobDataURL(id){try{const r=await fetch(BLOB+id);if(!r.ok)return '';const b=await r.blob();return await new Promise(ok=>{const fr=new FileReader();fr.onload=()=>ok(fr.result);fr.onerror=()=>ok('');fr.readAsDataURL(b)})}catch(e){return ''}}
 function sociosRet(){const m=new Map();arr('retiradas').forEach(r=>{const k=normTxt(r.socio||'');if(k&&!m.has(k))m.set(k,(r.socio||'').trim())});return [...m.entries()].sort((a,b)=>a[1].localeCompare(b[1]))}
@@ -3898,7 +3898,7 @@ function livroCaixa(per){const L=[],em=d=>String(d||'').startsWith(per);
   db.obras.forEach(o=>{o.medicoes.filter(m=>m.status==='Recebido'&&em(m.data)).forEach(m=>{const r=retMed(o,m);L.push({d:m.data,h:'Recebimento '+(m.descricao||'medição')+' – '+o.nome+(r.desc?' (líquido de retenções)':''),e:r2(r.liq),s:0})});
     o.gastos.filter(g=>!g.pendente&&em(g.data)).forEach(g=>L.push({d:g.data,h:(g.descricao||g.categoria)+' – '+o.nome,e:0,s:+g.valorTotal||0}))});
   empGastos.filter(g=>!g.pendente&&em(g.data)).forEach(g=>L.push({d:g.data,h:(g.descricao||g.categoria)+' – empresa',e:0,s:+g.valor||0}));
-  arr('retiradas').filter(r=>em(r.d)).forEach(r=>L.push({d:r.d,h:'Retirada / pró-labore – '+(r.socio||''),e:0,s:+r.valor||0}));
+  arr('retiradas').filter(r=>em(r.d)).forEach(r=>L.push({d:r.d,h:(r.valor<0?'Estorno do sócio – ':'Retirada / pró-labore – ')+(r.socio||''),e:r.valor<0?-r.valor:0,s:r.valor>0?+r.valor:0}));
   fiscal().restit.filter(r=>em(r.data)).forEach(r=>L.push({d:r.data,h:'Restituição de INSS',e:+r.valor||0,s:0}));
   return L.sort((a,b)=>String(a.d).localeCompare(String(b.d)))}
 function imprimirLivroCaixa(per){const L=livroCaixa(per),E=(db.config.empresa||'').toUpperCase(),te=soma(L,x=>x.e),ts=soma(L,x=>x.s);let s=0;
