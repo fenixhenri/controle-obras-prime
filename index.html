@@ -4218,7 +4218,7 @@ async function wordDiario(oid,rid){const o=db.obras.find(x=>x.id===oid);if(!o)re
 /* ---- Boletim de medição em Excel (mesmo visual do boletim impresso) ---- */
 function colL(c){let s='';c++;while(c){const m=(c-1)%26;s=String.fromCharCode(65+m)+s;c=Math.floor((c-1)/26)}return s}
 async function excelBoletim(oid,bid){const o=db.obras.find(x=>x.id===oid),b=o&&o.boletins.find(x=>x.id===bid);if(!b)return;
-  const C=db.config,D=dadosBol(o),EB=empBol(),ant=bolOrd(o).filter(x=>(x.numero||0)<b.numero),cols=[...ant,b].map(x=>({t:`${x.numero}ª · ${periodoTxt(x)}`,q:it=>+x.qtds[it.id]||0}));
+  const C=db.config,D=dadosBol(o),EB=empBol(),ant=bolOrd(o).filter(x=>(x.numero||0)<b.numero),cols=colsBoletim(ant,b);
   const tot=totalItens(o),acT=soma(o.itens,i=>acumItem(o,i,b.numero)*i.preco),v=valorBoletim(o,b),G=cols.length+2,N=6+G*3,X=DOCX.X;
   const S={tit:1,sub:2,box:3,sec:4,hd:5,tx:6,txc:7,q:8,qg:9,pc:10,mo:11,tt:12,tq:13,tp:14,tm:15,asl:16,asb:17,ass:18,hdq:19};
   const R={},M=[],H={};const put=(r,c,v,st)=>{(R[r]=R[r]||{})[c]={v,st}};const mg=(r1,c1,r2,c2)=>M.push(colL(c1)+(r1+1)+':'+colL(c2)+(r2+1));
@@ -4235,9 +4235,9 @@ async function excelBoletim(oid,bid){const o=db.obras.find(x=>x.id===oid),b=o&&o
   const h1=6,h2=7;['Item','Serviços','Un','Qtde','Preço unit.','Preço total'].forEach((t,c)=>{put(h1,c,t,c===3?S.hdq:S.hd);put(h2,c,'',S.hd);mg(h1,c,h2,c)});
   [...cols.map(x=>x.t),'Acumulado atual','Saldo contratual'].forEach((t,k)=>{const c0=6+k*3;put(h1,c0,t,S.hd);put(h1,c0+1,'',S.hd);put(h1,c0+2,'',S.hd);mg(h1,c0,h1,c0+2);put(h2,c0,'Qtde',S.hdq);put(h2,c0+1,'%',S.hd);put(h2,c0+2,'Valor',S.hd)});H[h1]=30;H[h2]=16;
   let r=h2+1;o.itens.forEach((it,ix)=>{const ac=acumItem(o,it,b.numero),sal=Math.max(0,it.qtd-ac),pc=x=>it.qtd?x/it.qtd:0;
-    put(r,0,ix+1,S.txc);put(r,1,it.servico,S.tx);put(r,2,it.un,S.txc);put(r,3,+it.qtd,S.qg);put(r,4,+it.preco,S.mo);put(r,5,r2(it.qtd*it.preco),S.mo);
+    H[r]=20;put(r,0,ix+1,S.txc);put(r,1,it.servico,S.tx);put(r,2,it.un,S.txc);put(r,3,+it.qtd,S.qg);put(r,4,+it.preco,S.mo);put(r,5,r2(it.qtd*it.preco),S.mo);
     const grp=(k,q)=>{const c0=6+k*3;put(r,c0,q,S.qg);put(r,c0+1,pc(q),S.pc);put(r,c0+2,r2(q*it.preco),S.mo)};
-    cols.forEach((x,k)=>grp(k,x.q(it)));grp(cols.length,ac);grp(cols.length+1,sal);H[r]=18;r++});
+    cols.forEach((x,k)=>grp(k,x.q(it)));grp(cols.length,ac);grp(cols.length+1,sal);H[r]=20;r++});
   put(r,0,'TOTAL',S.tt);mg(r,0,r,2);put(r,1,'',S.tt);put(r,2,'',S.tt);put(r,3,'',S.tq);put(r,4,'',S.tt);put(r,5,r2(tot),S.tm);
   const tg=(k,val)=>{const c0=6+k*3;put(r,c0,'',S.tq);put(r,c0+1,tot?val/tot:0,S.tp);put(r,c0+2,r2(val),S.tm)};
   cols.forEach((x,k)=>tg(k,soma(o.itens,i=>x.q(i)*i.preco)));tg(cols.length,acT);tg(cols.length+1,Math.max(0,tot-acT));H[r]=20;
@@ -4245,7 +4245,7 @@ async function excelBoletim(oid,bid){const o=db.obras.find(x=>x.id===oid),b=o&&o
   [[0,Math.max(5,meio-2),EB.toUpperCase(),C.cnpj,'Contratada'],[Math.min(N-1,meio+1),N-1,(D.contratante||'').toUpperCase(),D.cnpjContratante,'Contratante']].forEach(([c1,c2,nm,cn,pap])=>{
     for(let c=c1;c<=c2;c++)put(ra,c,'',S.asl);mg(ra+1,c1,ra+1,c2);put(ra+1,c1,nm,S.asb);mg(ra+2,c1,ra+2,c2);put(ra+2,c1,(cn?'CNPJ '+cn+'   ·   ':'')+pap,S.ass)});
   H[ra]=30;
-  const wid=[5,30,5,9,9,11,...Array.from({length:G},()=>[8,6.5,10]).flat()];
+  const wid=[6,36,6,11,11,14,...Array.from({length:G},()=>[11,8,14]).flat()];
   const cel=(rr,c,x)=>{const ref=colL(c)+(rr+1),st=` s="${x.st||0}"`;if(x.v==null||x.v==='')return `<c r="${ref}"${st}/>`;
     if(typeof x.v==='number')return `<c r="${ref}"${st}><v>${x.v}</v></c>`;
     if(x.v&&x.v.rich)return `<c r="${ref}"${st} t="inlineStr"><is>${x.v.rich.map(u=>`<r><rPr>${u.b?'<b/>':''}<sz val="${u.sz||9}"/><color rgb="FF${u.cor||'0F172A'}"/><rFont val="Calibri"/></rPr><t xml:space="preserve">${X(u.t)}</t></r>`).join('')}</is></c>`;
@@ -5217,8 +5217,9 @@ async function importarPDF(f){
 
 /* ----- impressão do boletim ----- */
 function relBoletim(o,bid){const r=htmlBoletim(o,bid);if(r)abrirImpressao(r.t,r.h,true)}
+function colsBoletim(ant,b){return[{t:ant.length?`Acumulado anterior (até a ${ant[ant.length-1].numero}ª)`:'Acumulado anterior',q:it=>soma(ant,x=>+x.qtds[it.id]||0)},{t:`${b.numero}ª medição · ${periodoTxt(b)}`,q:it=>+b.qtds[it.id]||0}]}
 function htmlBoletim(o,bid){const b=o.boletins.find(x=>x.id===bid);if(!b)return null;const C=db.config;
-  const ant=bolOrd(o).filter(x=>(x.numero||0)<b.numero);const cols=[...ant,b].map(x=>({t:`${x.numero}ª · ${periodoTxt(x)}`,q:it=>+x.qtds[it.id]||0}));
+  const ant=bolOrd(o).filter(x=>(x.numero||0)<b.numero);const cols=colsBoletim(ant,b);
   const FV=cols.length>4?ms:fm;const v=valorBoletim(o,b);const tot=totalItens(o);const acT=soma(o.itens,i=>acumItem(o,i,b.numero)*i.preco);
   const lg=$('logoPrime')?$('logoPrime').src:'';const D=dadosBol(o),EB=empBol();
   const h=`<div class="top"><div class="rel-marca">${lg?`<img src="${lg}" alt="">`:''}<div><h1>BOLETIM DE MEDIÇÃO</h1><div class="sub"><b>${b.numero}ª MEDIÇÃO</b> · Período ${periodoTxt(b)}</div></div></div></div>
