@@ -4291,6 +4291,23 @@ async function excelBoletim(oid,bid){const o=db.obras.find(x=>x.id===oid),b=o&&o
     {nome:'xl/media/logo.'+lext,dados:dataUrlBytes(lg)})}
   const blob=DOCX.zip(arqs,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   const nome=('Boletim '+b.numero+'a medicao - '+D.obra).replace(/[\\/:*?"<>|]+/g,'-')+'.xlsx';if(await baixar(nome,blob))toast('📊 Excel baixado: '+nome)}
+/* ---------- boletim → dados para NF (WhatsApp do contador) ---------- */
+function nfZapBol(oid,bid){const o=db.obras.find(x=>x.id===oid),b=o&&o.boletins.find(x=>x.id===bid);if(!b)return;
+  const D=dadosBol(o),C=db.config||{},un=u=>String(u||'').toUpperCase()==='M2'?'m²':String(u||'').toUpperCase()==='M3'?'m³':String(u||'').toLowerCase();
+  const fd=d=>d?String(d).split('-').reverse().join('/'):'';
+  const cnD=String(D.cnpjContratante||'').replace(/\D/g,'');
+  const pr=(C.propostas||[]).find(p=>cnD&&String(p.cnpj||'').replace(/\D/g,'')===cnD&&p.endCli);
+  const its=o.itens.filter(i=>(+b.qtds[i.id]||0)>0).map(i=>`• ${i.servico} – ${fq(+b.qtds[i.id])} ${un(i.un)}`);
+  const L=['🧾 *DADOS PARA NOTA FISCAL*','',
+    `*Prestador:* ${empBol()||C.empresa||''}${C.cnpj?' – CNPJ '+C.cnpj:''}`,'',
+    `*Tomador (contratante):* ${D.contratante||''}`];
+  if(D.cnpjContratante)L.push(`CNPJ: ${D.cnpjContratante}`);
+  if(pr)L.push(`Endereço: ${pr.endCli}`);
+  L.push('',`*Obra:* ${D.obra||o.nome}${D.local?' – '+D.local:''}`);
+  if(D.numContrato)L.push(`Contrato nº ${D.numContrato}`);
+  L.push(`*Medição:* BM nº ${b.numero}${b.inicio||b.fim?' – período '+fd(b.inicio)+' a '+fd(b.fim):''}`,'','*Serviços medidos no período:*',...(its.length?its:['(nenhum item com quantidade)']));
+  L.push('',`💰 *Valor da nota: ${fm(valorBoletim(o,b))}*`);
+  abrirZapTxt(L.join('\n'),'🧾 Dados da NF para o contador',true)}
 /* ================= RECIBO WHATSAPP ================= */
 function extenso(v){v=Math.round((+v||0)*100);const r=Math.floor(v/100),c=v%100;
   const U=['zero','um','dois','três','quatro','cinco','seis','sete','oito','nove','dez','onze','doze','treze','quatorze','quinze','dezesseis','dezessete','dezoito','dezenove'],D=['','','vinte','trinta','quarenta','cinquenta','sessenta','setenta','oitenta','noventa'],C=['','cento','duzentos','trezentos','quatrocentos','quinhentos','seiscentos','setecentos','oitocentos','novecentos'];
@@ -5050,7 +5067,7 @@ function renderBoletim(o,box){
   ${o.itens.length?`<section class="card"><div class="card-head"><h2>🧾 Medições desta obra</h2></div>
     ${bs.length?`<div class="med-lista">${bs.slice().reverse().map(b=>{const v=valorBoletim(o,b);
       return `<div class="med-card"><div class="med-top"><div><b>${b.numero}ª medição</b><div class="obs">${periodoTxt(b)}</div></div><div class="med-val">${fm(v)}</div></div>
-      <div class="med-bot">${segStatus(o,b)}<span class="acoes"><button class="ac ac-e" onclick="abrirBoletim('${b.id}')" title="Editar">✏️</button><button class="ac ac-d" onclick="relBoletim(obraAtual(),'${b.id}')" title="Imprimir">🖨️</button><button class="ac ac-z" onclick="excelBoletim(obraAtual().id,'${b.id}')" title="Baixar em Excel">📊</button><button class="ac ac-z" onclick="pacoteMedicao(obraAtual().id,'${b.id}')" title="Pacote da medição: boletim + resumo + diário + fotos">📦</button><button class="ac ac-x" onclick="excluirBoletim('${b.id}')" title="Excluir">🗑️</button></span></div>
+      <div class="med-bot">${segStatus(o,b)}<span class="acoes"><button class="ac ac-e" onclick="abrirBoletim('${b.id}')" title="Editar">✏️</button><button class="ac ac-d" onclick="relBoletim(obraAtual(),'${b.id}')" title="Imprimir">🖨️</button><button class="ac ac-z" onclick="excelBoletim(obraAtual().id,'${b.id}')" title="Baixar em Excel">📊</button><button class="ac ac-z" onclick="nfZapBol(obraAtual().id,'${b.id}')" title="Enviar ao contador para emitir a NF (WhatsApp)">🧾</button><button class="ac ac-z" onclick="pacoteMedicao(obraAtual().id,'${b.id}')" title="Pacote da medição: boletim + resumo + diário + fotos">📦</button><button class="ac ac-x" onclick="excluirBoletim('${b.id}')" title="Excluir">🗑️</button></span></div>
       </div></div>`}).join('')}</div>`:'<div class="vazio">Nenhuma medição lançada ainda. Toque em <b>+ Nova medição</b>.</div>'}
   </section>`:''}`;
 }
