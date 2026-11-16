@@ -4307,6 +4307,28 @@ function nfZapBol(oid,bid){const o=db.obras.find(x=>x.id===oid),b=o&&o.boletins.
   L.push('','*Serviços executados:*',...(its.length?its:['(nenhum item com quantidade)']));
   L.push('',`💰 *Valor da nota: ${fm(valorBoletim(o,b))}*`);
   abrirZapTxt(L.join('\n'),'🧾 Dados da NF para o contador',true)}
+/* ---------- boletim completo (todas as medições) ---------- */
+function htmlBolCompleto(o){const bs=bolOrd(o);if(!o.itens.length)return null;const C=db.config;
+  const cols=bs.map(b=>({t:`${b.numero}ª medição<br><span style="font-weight:400">${periodoTxt(b)}</span>`,q:it=>+b.qtds[it.id]||0}));
+  const FV=cols.length>2?ms:fm,tot=totalItens(o),acT=soma(o.itens,i=>acumItem(o,i)*i.preco),pend=soma(bs.filter(b=>b.status!=='Recebido'),b=>valorBoletim(o,b));
+  const lg=$('logoPrime')?$('logoPrime').src:'';const D=dadosBol(o),EB=empBol();const n=cols.length+2;
+  const h=`<div class="top"><div class="rel-marca">${lg?`<img src="${lg}" alt="">`:''}<div><h1>BOLETIM DE MEDIÇÃO – COMPLETO</h1><div class="sub">${bs.length?`<b>${bs.length} medição(ões)</b> · ${periodoTxt({inicio:bs[0].inicio,fim:bs[bs.length-1].fim})}`:'Nenhuma medição lançada'}</div></div></div></div>
+  <div class="box">
+    <div class="k" style="flex:1.4"><span>Dados da contratada</span><b style="font-size:12px;font-weight:normal;line-height:1.6"><b>${esc(EB.toUpperCase())}</b><br>CNPJ: ${esc(C.cnpj||'—')}<br>Banco / Agência: ${esc(C.banco||'—')}<br>Conta / Operação: ${esc(C.conta||'—')}${C.pix?'<br>PIX: '+esc(C.pix):''}</b></div>
+    <div class="k" style="flex:1.4"><span>Dados da obra / contrato</span><b style="font-size:12px;font-weight:normal;line-height:1.6">Obra: <b>${esc(D.obra)}</b><br>Contratante: ${esc(D.contratante||'—')}<br>CNPJ: ${esc(D.cnpjContratante||'—')}<br>Nº contrato: ${esc(D.numContrato||'—')}<br>Prazo: ${D.prazo?esc(D.prazo)+' dias':'—'}${D.local?'<br>Local: '+esc(D.local):''}</b></div>
+    <div class="k dest" style="border-color:#1e3a8a"><span>Medido acumulado</span><b style="font-size:18px">${fm(acT)}</b><span style="text-transform:none;margin-top:4px">${fp(tot?acT/tot*100:0)} do contrato (${fm(tot)})<br>Saldo a medir: ${fm(Math.max(0,tot-acT))}${pend?'<br>A receber: '+fm(pend):''}</span></div>
+  </div>
+  <h2>Planilha de medição</h2>
+  <table class="t-bol${n>4?' t-bol-n'+Math.min(n,9):''}"><thead><tr><th rowspan="2">Item</th><th rowspan="2">Serviços</th><th rowspan="2">Un</th><th rowspan="2" class="r g">Qtde</th><th rowspan="2" class="r">Preço unit.</th><th rowspan="2" class="r">Preço total</th>${cols.map(c=>`<th colspan="3" class="c g">${c.t}</th>`).join('')}<th colspan="3" class="c g">Acumulado</th><th colspan="3" class="c g">Saldo contratual</th></tr>
+  <tr>${cols.map(()=>'<th class="r g">Qtde</th><th class="r">%</th><th class="r">Valor</th>').join('')}<th class="r g">Qtde</th><th class="r">%</th><th class="r">Valor</th><th class="r g">Qtde</th><th class="r">%</th><th class="r">Valor</th></tr></thead><tbody>
+  ${o.itens.map((it,ix)=>{const ac=acumItem(o,it),sal=Math.max(0,it.qtd-ac),p=x=>fp(it.qtd?x/it.qtd*100:0);
+    return `<tr><td class="c">${ix+1}</td><td>${esc(it.servico)}</td><td class="c">${esc(it.un)}</td><td class="r g">${fq(it.qtd)}</td><td class="r">${FV(it.preco)}</td><td class="r">${FV(it.qtd*it.preco)}</td>
+    ${cols.map(c=>{const q=c.q(it);return q?`<td class="r g">${fq(q)}</td><td class="r">${p(q)}</td><td class="r">${FV(q*it.preco)}</td>`:'<td class="r g">–</td><td></td><td></td>'}).join('')}
+    <td class="r g">${fq(ac)}</td><td class="r">${p(ac)}</td><td class="r">${FV(ac*it.preco)}</td><td class="r g">${fq(sal)}</td><td class="r">${p(sal)}</td><td class="r">${FV(sal*it.preco)}</td></tr>`}).join('')}
+  </tbody><tfoot><tr><td colspan="3">TOTAL</td><td class="g"></td><td></td><td class="r">${FV(tot)}</td>${cols.map(c=>{const t=soma(o.itens,i=>c.q(i)*i.preco);return `<td class="g"></td><td class="r">${fp(tot?t/tot*100:0)}</td><td class="r">${FV(t)}</td>`}).join('')}<td class="g"></td><td class="r">${fp(tot?acT/tot*100:0)}</td><td class="r">${FV(acT)}</td><td class="g"></td><td class="r">${fp(tot?(tot-acT)/tot*100:0)}</td><td class="r">${FV(Math.max(0,tot-acT))}</td></tr></tfoot></table>
+  <div class="assin"><div><div class="linha"></div><b>${esc(EB.toUpperCase())}</b><br>${C.cnpj?'CNPJ '+esc(C.cnpj):''}<br>Contratada</div><div><div class="linha"></div><b>${esc((D.contratante||'').toUpperCase())}</b><br>${D.cnpjContratante?'CNPJ '+esc(D.cnpjContratante):''}<br>Contratante</div></div>`;
+  return{t:`Boletim completo - ${D.obra}`,h}}
+function relBolCompleto(oid){const o=db.obras.find(x=>x.id===oid);if(!o)return;const r=htmlBolCompleto(o);if(!r){toast('Cadastre os itens da planilha primeiro.');return}abrirImpressao(r.t,r.h,true)}
 /* ================= RECIBO WHATSAPP ================= */
 function extenso(v){v=Math.round((+v||0)*100);const r=Math.floor(v/100),c=v%100;
   const U=['zero','um','dois','três','quatro','cinco','seis','sete','oito','nove','dez','onze','doze','treze','quatorze','quinze','dezesseis','dezessete','dezoito','dezenove'],D=['','','vinte','trinta','quarenta','cinquenta','sessenta','setenta','oitenta','noventa'],C=['','cento','duzentos','trezentos','quatrocentos','quinhentos','seiscentos','setecentos','oitocentos','novecentos'];
@@ -5049,7 +5071,7 @@ function renderBoletim(o,box){
     </div>
   </section>
   <section class="card"><div class="card-head"><h2>📏 Boletim de medição</h2>
-    <div class="obra-btns"><button class="btn btn-verde btn-sm" onclick="abrirBoletim()" ${o.itens.length?'':'disabled style="opacity:.5"'}>+ Nova medição</button><button class="btn btn-cinza btn-sm" onclick="abrirItem()">+ Item</button><button class="btn btn-cinza btn-sm" onclick="$('arqMed').click()">📥 Importar Excel ou PDF</button></div></div>
+    <div class="obra-btns"><button class="btn btn-verde btn-sm" onclick="abrirBoletim()" ${o.itens.length?'':'disabled style="opacity:.5"'}>+ Nova medição</button><button class="btn btn-cinza btn-sm" onclick="abrirItem()">+ Item</button><button class="btn btn-cinza btn-sm" onclick="$('arqMed').click()">📥 Importar Excel ou PDF</button><button class="btn btn-azul btn-sm" onclick="relBolCompleto(obraAtual().id)" ${o.itens.length?'':'disabled style="opacity:.5"'}>🖨️ Imprimir boletim completo</button></div></div>
     <input type="file" id="arqMed" accept=".xlsx,.xls,.pdf,application/pdf" style="display:none" onchange="importarPlanilhaMed(this)">
     <div class="kpi-grid" style="margin-bottom:10px">
       ${kpi('📐 Total da planilha',fm(tot),'amarelo',o.itens.length+' item(ns)')}
