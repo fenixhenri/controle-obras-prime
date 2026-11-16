@@ -4304,8 +4304,7 @@ function nfZapBol(oid,bid){const o=db.obras.find(x=>x.id===oid),b=o&&o.boletins.
   if(D.cnpjContratante)L.push(`CNPJ: ${D.cnpjContratante}`);
   if(pr)L.push(`Endereço: ${pr.endCli}`);
   L.push('',`*Obra:* ${D.obra||o.nome}${D.local?' – '+D.local:''}`);
-  if(D.numContrato)L.push(`Contrato nº ${D.numContrato}`);
-  L.push(`*Medição:* BM nº ${b.numero}${b.inicio||b.fim?' – período '+fd(b.inicio)+' a '+fd(b.fim):''}`,'','*Serviços medidos no período:*',...(its.length?its:['(nenhum item com quantidade)']));
+  L.push('','*Serviços executados:*',...(its.length?its:['(nenhum item com quantidade)']));
   L.push('',`💰 *Valor da nota: ${fm(valorBoletim(o,b))}*`);
   abrirZapTxt(L.join('\n'),'🧾 Dados da NF para o contador',true)}
 /* ================= RECIBO WHATSAPP ================= */
