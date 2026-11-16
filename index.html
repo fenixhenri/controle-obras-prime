@@ -4093,8 +4093,8 @@ function imprimirEscala(){const ini=db.ui.escIni||semanaIni(hoje()),dias=Array.f
 let assetsCap=null;(async()=>{try{assetsCap=window.claude&&window.claude.use?await window.claude.use('assets'):null}catch(e){assetsCap=null}})();
 function diarioObra(o){if(!Array.isArray(o.diario))o.diario=[];return o.diario}
 function renderDiario(o,box){const L=diarioObra(o).slice().sort((a,b)=>String(b.d).localeCompare(String(a.d)));
-  box.innerHTML=`<section class="card"><div class="card-head"><h2>📔 Diário de obra</h2><div class="obra-btns"><button class="btn btn-verde btn-sm" onclick="abrirDiario()">+ Registro do dia</button>${L.length?`<button class="btn btn-cinza btn-sm" onclick="imprimirDiario('${o.id}')">🖨️ Imprimir</button>`:''}</div></div>
-  ${L.length?`<div class="dr-lista">${L.map(r=>`<div class="dr-it"><div class="med-top"><div><b>${DIAS_SEM[new Date(pd(r.d).y,pd(r.d).m,pd(r.d).d).getDay()]}, ${fd(r.d)}</b>${r.pronta?'<span class="bdg-pronta">🏁 Obra pronta</span>':''}<div class="obs">${[r.clima?'☁️ '+esc(r.clima):'',r.equipe?'👷 '+esc(r.equipe):''].filter(Boolean).join(' · ')}</div></div><span class="acoes"><button class="ac ac-e" onclick="abrirDiario('${r.id}')">✏️</button><button class="ac ac-x" onclick="excluirDiario('${r.id}')">🗑️</button></span></div>
+  box.innerHTML=`<section class="card"><div class="card-head"><h2>📔 Diário de obra</h2><div class="obra-btns"><button class="btn btn-verde btn-sm" onclick="abrirDiario()">+ Registro do dia</button>${L.length?`<button class="btn btn-cinza btn-sm" onclick="imprimirDiario('${o.id}')">🖨️ Imprimir</button><button class="btn btn-cinza btn-sm" onclick="wordDiario('${o.id}')">📄 Word</button>`:''}</div></div>
+  ${L.length?`<div class="dr-lista">${L.map(r=>`<div class="dr-it"><div class="med-top"><div><b>${DIAS_SEM[new Date(pd(r.d).y,pd(r.d).m,pd(r.d).d).getDay()]}, ${fd(r.d)}</b>${r.pronta?'<span class="bdg-pronta">🏁 Obra pronta</span>':''}<div class="obs">${[r.clima?'☁️ '+esc(r.clima):'',r.equipe?'👷 '+esc(r.equipe):''].filter(Boolean).join(' · ')}</div></div><span class="acoes"><button class="ac ac-z" onclick="zapDiario('${o.id}','${r.id}')" title="Enviar o relatório do dia (WhatsApp / Word)">📲</button><button class="ac ac-e" onclick="abrirDiario('${r.id}')">✏️</button><button class="ac ac-x" onclick="excluirDiario('${r.id}')">🗑️</button></span></div>
     ${r.ativ?`<div class="dr-txt"><b>Serviços:</b> ${esc(r.ativ)}</div>`:''}${r.ocor?`<div class="dr-txt"><b>Ocorrências:</b> ${esc(r.ocor)}</div>`:''}
     ${(r.fotos||[]).length?`<div class="dr-fotos">${r.fotos.map(id=>`<a href="${BLOB}${id}" target="_blank" rel="noopener"><img src="${BLOB}${id}" alt="" loading="lazy" onerror="this.parentNode.classList.add('dr-x')"></a>`).join('')}</div>`:''}</div>`).join('')}</div>`
   :'<div class="vazio">Nenhum registro. Anote o que foi feito no dia, quem trabalhou, o clima, ocorrências e tire fotos.</div>'}
@@ -4135,7 +4135,7 @@ async function salvarDiario(){if(diarioFotos.some(x=>x.startsWith('tmp:'))){toas
   if(!dados.ativ&&!dados.ocor&&!dados.fotos.length){aviso('Escreva o que foi feito ou adicione uma foto.');return}
   const r=diarioEdit?diarioObra(o).find(x=>x.id===diarioEdit):null;
   if(r)(r.fotos||[]).filter(id=>!dados.fotos.includes(id)).forEach(id=>paraLixeira('fotodiario',`Foto do diário de ${fd(r.d)}`,{rid:r.id,d:r.d,foto:id},o));
-  if(r)Object.assign(r,dados);else diarioObra(o).push({id:novoId('dr'),...dados});salvar();fecharModal('modalDiario');render();toast('✅ Diário salvo')}
+  let nid=null;if(r)Object.assign(r,dados);else{nid=novoId('dr');diarioObra(o).push({id:nid,...dados})}salvar();fecharModal('modalDiario');render();toast('✅ Diário salvo');if(nid)setTimeout(()=>zapDiario(o.id,nid),400)}
 async function excluirDiario(id){if(!await confirmar('Excluir','Excluir este registro do diário? As fotos ficam guardadas no programa.','Excluir',true))return;const o=obraAtual(),dx=diarioObra(o).find(x=>x.id===id);if(dx)paraLixeira('diario',`Diário de ${fd(dx.d)}`,dx,o);o.diario=diarioObra(o).filter(x=>x.id!==id);salvar();render()}
 async function imgReduzida(id,max){const u=await blobDataURL(id);if(!u)return '';try{const im=await new Promise((ok,er)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=er;i.src=u});const k=Math.min(1,max/Math.max(im.naturalWidth,im.naturalHeight));if(k>=1)return u;const c=document.createElement('canvas');c.width=Math.round(im.naturalWidth*k);c.height=Math.round(im.naturalHeight*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);return c.toDataURL('image/jpeg',0.82)}catch(e){return u}}
 async function imprimirDiario(oid){const o=db.obras.find(x=>x.id===oid),L=diarioObra(o).slice().sort((a,b)=>String(a.d).localeCompare(String(b.d)));
@@ -4145,6 +4145,137 @@ async function imprimirDiario(oid){const o=db.obras.find(x=>x.id===oid),L=diario
   ${(r.fotos||[]).some(id=>img[id])?`<div class="dr-pf">${r.fotos.filter(id=>img[id]).map(id=>`<img src="${img[id]}" alt="">`).join('')}</div>`:''}</div>`).join('')}
   <div class="assin"><div><div class="linha"></div><b>${esc((db.config.empresa||'').toUpperCase())}</b>${db.config.cnpj?'<br>CNPJ '+esc(db.config.cnpj):''}<br>Responsável</div><div><div class="linha"></div><b>${esc((o.contratante||'').toUpperCase())}</b>${(o.cnpjContratante||(o.bol||{}).cnpjContratante)?'<br>CNPJ '+esc(o.cnpjContratante||o.bol.cnpjContratante):''}<br>Fiscalização</div></div>`;abrirImpressao('Diario de obra - '+o.nome,h)}
 
+/* ================= DIÁRIO NO WHATSAPP / WORD · BOLETIM EM EXCEL ================= */
+function diaSemTxt(d){const q=pd(d);return DIAS_SEM[new Date(q.y,q.m,q.d).getDay()]}
+function txtDiarioZap(o,r){const C=(o.consumos||[]).filter(c=>dataConsumo(c)===r.d),L=[];
+  L.push('📔 *RELATÓRIO DIÁRIO DE OBRA*');L.push('🏗️ *'+o.nome.toUpperCase()+'*');
+  L.push('📅 '+diaSemTxt(r.d).replace(/^./,c=>c.toUpperCase())+', '+fd(r.d)+(r.clima?' · ☀️ '+r.clima:''));
+  if(r.equipe)L.push('👷 Equipe: '+r.equipe);
+  if(r.ativ){L.push('');L.push('✅ *Serviços executados:*');String(r.ativ).split(/\n+/).map(s=>s.trim()).filter(Boolean).forEach(s=>L.push('• '+s.replace(/^[-•*]\s*/,'')))}
+  if(C.length){L.push('');L.push('🧪 *Material usado:*');C.forEach(c=>L.push('• '+nomeMat(c)+': '+fq(c.q)+' '+(c.un||'')+(c.obs?' ('+c.obs+')':'')))}
+  if(r.ocor&&!/^0+$/.test(String(r.ocor).trim())){L.push('');L.push('⚠️ *Ocorrências:* '+r.ocor)}
+  if(r.pronta){L.push('');L.push('🏁 *Obra pronta*')}
+  if((r.fotos||[]).length){L.push('');L.push('📷 '+r.fotos.length+' foto(s) registradas no diário')}
+  L.push('');L.push('— '+(db.config.empresa||''));return L.join('\n')}
+async function fotosArquivos(ids,max){const F=[];for(const id of ids){const u=await imgReduzida(id,max||1280);if(!u)continue;const b=await (await fetch(u)).blob();F.push(new File([b],'foto_'+(F.length+1)+'.jpg',{type:'image/jpeg'}))}return F}
+function zapDiario(oid,rid){const o=db.obras.find(x=>x.id===oid),r=o&&diarioObra(o).find(x=>x.id===rid);if(!r)return;const t=txtDiarioZap(o,r);
+  const podeFotos=(r.fotos||[]).length&&navigator.canShare;
+  abrirMenu('📲 Relatório do dia no WhatsApp',[['💬','Enviar o texto no grupo da obra',`abrirZapTxt(txtDiarioZap(db.obras.find(x=>x.id==='${oid}'),diarioObra(db.obras.find(x=>x.id==='${oid}')).find(x=>x.id==='${rid}')),'📲 Relatório do dia',true)`],
+    ...(podeFotos?[['📷',`Enviar texto + ${r.fotos.length} foto(s)`,`compartilharDiario('${oid}','${rid}')`]]:[]),
+    ['📄','Baixar este dia em Word (com fotos)',`wordDiario('${oid}','${rid}')`]])}
+async function compartilharDiario(oid,rid){const o=db.obras.find(x=>x.id===oid),r=o&&diarioObra(o).find(x=>x.id===rid);if(!r)return;const t=txtDiarioZap(o,r);
+  toast('Preparando as fotos…');let F=[];try{F=await fotosArquivos(r.fotos||[],1280)}catch(e){}
+  try{if(F.length&&navigator.canShare&&navigator.canShare({files:F})){try{await navigator.clipboard.writeText(t)}catch(e){}await navigator.share({files:F,text:t,title:'Relatório do dia'});return}}catch(e){if(e&&e.name==='AbortError')return}
+  aviso('Este aparelho não deixa enviar as fotos direto daqui. Vou abrir o texto para você mandar; as fotos você envia em seguida pela galeria.');abrirZapTxt(t,'📲 Relatório do dia',true)}
+
+/* ---- Word (.docx) ---- */
+const DOCX=(()=>{const T=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;T[n]=c>>>0}
+  const crc=u=>{let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=T[(c^u[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0},te=new TextEncoder();
+  function zip(arqs,mime){const partes=[],central=[];let off=0;
+    for(const a of arqs){const nm=te.encode(a.nome),d=typeof a.dados==='string'?te.encode(a.dados):a.dados,c=crc(d),h=new DataView(new ArrayBuffer(30));
+      h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(10,0,true);h.setUint16(12,0x21,true);h.setUint32(14,c,true);h.setUint32(18,d.length,true);h.setUint32(22,d.length,true);h.setUint16(26,nm.length,true);
+      partes.push(h.buffer,nm,d);const ce=new DataView(new ArrayBuffer(46));
+      ce.setUint32(0,0x02014b50,true);ce.setUint16(4,20,true);ce.setUint16(6,20,true);ce.setUint16(8,0x0800,true);ce.setUint16(14,0x21,true);ce.setUint32(16,c,true);ce.setUint32(20,d.length,true);ce.setUint32(24,d.length,true);ce.setUint16(28,nm.length,true);ce.setUint32(42,off,true);
+      central.push(ce.buffer,nm);off+=30+nm.length+d.length}
+    const tamC=central.reduce((s,x)=>s+x.byteLength,0),e=new DataView(new ArrayBuffer(22));
+    e.setUint32(0,0x06054b50,true);e.setUint16(8,arqs.length,true);e.setUint16(10,arqs.length,true);e.setUint32(12,tamC,true);e.setUint32(16,off,true);
+    return new Blob([...partes,...central,e.buffer],{type:mime||'application/vnd.openxmlformats-officedocument.wordprocessingml.document'})}
+  const X=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const run=(t,o)=>{o=o||{};const pr=(o.b?'<w:b/>':'')+(o.cor?`<w:color w:val="${o.cor}"/>`:'')+(o.sz?`<w:sz w:val="${o.sz*2}"/>`:'');return String(t).split('\n').map((s,i)=>(i?'<w:r><w:br/></w:r>':'')+`<w:r>${pr?'<w:rPr>'+pr+'</w:rPr>':''}<w:t xml:space="preserve">${X(s)}</w:t></w:r>`).join('')};
+  const par=(conteudo,o)=>{o=o||{};return `<w:p><w:pPr>${o.center?'<w:jc w:val="center"/>':''}<w:spacing w:before="${o.antes||0}" w:after="${o.depois==null?80:o.depois}"/></w:pPr>${conteudo}</w:p>`};
+  function novo(){const midias=[];let nId=1;
+    function img(bytes,ext,wCm,hCm){const i=midias.length+1,rid='rIdImg'+i;midias.push({nome:`word/media/img${i}.${ext}`,dados:bytes,rid,ext});const cx=Math.round(wCm*360000),cy=Math.round(hCm*360000),id=nId++;
+      return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${id}" name="Imagem ${id}"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${id}" name="img${i}.${ext}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`}
+    function gerar(corpo){const rels=midias.map(m=>`<Relationship Id="${m.rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${m.nome.split('/').pop()}"/>`).join('');
+      return zip([
+        {nome:'[Content_Types].xml',dados:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpeg" ContentType="image/jpeg"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>'},
+        {nome:'_rels/.rels',dados:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'},
+        {nome:'word/_rels/document.xml.rels',dados:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels}</Relationships>`},
+        {nome:'word/document.xml',dados:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><w:body>${corpo}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="851" w:right="851" w:bottom="851" w:left="851" w:header="425" w:footer="425" w:gutter="0"/></w:sectPr></w:body></w:document>`},
+        ...midias.map(m=>({nome:m.nome,dados:m.dados}))])}
+    return{img,gerar}}
+  const tabela=(linhas,larg)=>`<w:tbl><w:tblPr><w:tblW w:w="${larg.reduce((a,b)=>a+b,0)}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders></w:tblPr><w:tblGrid>${larg.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${linhas.map(l=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${l.map((c,i)=>`<w:tc><w:tcPr><w:tcW w:w="${larg[i]}" w:type="dxa"/></w:tcPr>${c||'<w:p/>'}</w:tc>`).join('')}</w:tr>`).join('')}</w:tbl>`;
+  return{novo,run,par,tabela,X,zip}})();
+function dataUrlBytes(u){const b=atob(u.split(',')[1]||'');const a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a}
+function tamImg(u){return new Promise(ok=>{const i=new Image();i.onload=()=>ok({w:i.naturalWidth||4,h:i.naturalHeight||3});i.onerror=()=>ok({w:4,h:3});i.src=u})}
+async function wordDiario(oid,rid){const o=db.obras.find(x=>x.id===oid);if(!o)return;let L=diarioObra(o).slice().sort((a,b)=>String(a.d).localeCompare(String(b.d)));if(rid)L=L.filter(x=>x.id===rid);if(!L.length){aviso('Nenhum registro no diário.');return}
+  const nF=L.reduce((s,r)=>s+(r.fotos||[]).length,0);toast(nF?'Montando o Word com '+nF+' foto(s)…':'Montando o Word…');
+  const D=DOCX.novo(),{run,par,tabela}=DOCX,C=db.config,partes=[];
+  const lg=$('logoPrime')?$('logoPrime').src:'';let cab=par(run('RELATÓRIO DIÁRIO DE OBRA',{b:1,sz:16,cor:'1E3A8A'}),{depois:40})+par(run(String(C.empresa||'').toUpperCase()+(C.cnpj?' · CNPJ '+C.cnpj:''),{sz:9,cor:'475569'}),{depois:0});
+  if(lg&&lg.startsWith('data:image')){const ext=/png/.test(lg.slice(0,30))?'png':'jpeg',t=await tamImg(lg),h=1.8,w=Math.min(4,h*t.w/t.h);partes.push(tabela([[par(D.img(dataUrlBytes(lg),ext,w,h),{depois:0}),cab]],[1600,8500]))}else partes.push(cab);
+  partes.push(par(run('Obra: ',{b:1})+run(o.nome)+(o.contratante?run('   ·   Contratante: ',{b:1})+run(o.contratante):'')+(o.local?run('   ·   Local: ',{b:1})+run(o.local):''),{antes:160,depois:160}));
+  for(const r of L){partes.push(par(run(diaSemTxt(r.d).replace(/^./,c=>c.toUpperCase())+', '+fd(r.d)+(r.clima?'  ·  Clima: '+r.clima:'')+(r.pronta?'  ·  OBRA PRONTA':''),{b:1,sz:12,cor:'1E3A8A'}),{antes:200,depois:80}));
+    if(r.equipe)partes.push(par(run('Equipe: ',{b:1})+run(r.equipe)));
+    if(r.ativ)partes.push(par(run('Serviços executados:',{b:1})+'<w:r><w:br/></w:r>'+run(r.ativ)));
+    const Cm=(o.consumos||[]).filter(c=>dataConsumo(c)===r.d);if(Cm.length)partes.push(par(run('Material usado: ',{b:1})+run(Cm.map(c=>nomeMat(c)+' '+fq(c.q)+' '+(c.un||'')).join('; '))));
+    if(r.ocor&&!/^0+$/.test(String(r.ocor).trim()))partes.push(par(run('Ocorrências: ',{b:1})+run(r.ocor)));
+    const fotos=[];for(const id of (r.fotos||[])){const u=await imgReduzida(id,1100);if(!u)continue;const t=await tamImg(u),W=7.6,H=8.5,k=Math.min(W/t.w,H/t.h);fotos.push(par(D.img(dataUrlBytes(u),'jpeg',t.w*k,t.h*k),{center:1,depois:120}))}
+    if(fotos.length){const lin=[];for(let i=0;i<fotos.length;i+=2)lin.push([fotos[i],fotos[i+1]||'']);partes.push(tabela(lin,[5050,5050]))}}
+  partes.push(par('',{antes:600}));partes.push(tabela([[par(run('______________________________')+'<w:r><w:br/></w:r>'+run(String(C.empresa||'').toUpperCase(),{b:1})+'<w:r><w:br/></w:r>'+run('Responsável'),{center:1}),par(run('______________________________')+'<w:r><w:br/></w:r>'+run(String(o.contratante||'').toUpperCase(),{b:1})+'<w:r><w:br/></w:r>'+run('Fiscalização'),{center:1})]],[5050,5050]));
+  const blob=D.gerar(partes.join(''));const nome=('Diario '+o.nome+(rid&&L[0]?' '+L[0].d:'')).replace(/[\\/:*?"<>|]+/g,'-')+'.docx';
+  if(await baixar(nome,blob))toast('📄 Word baixado: '+nome)}
+
+/* ---- Boletim de medição em Excel (mesmo visual do boletim impresso) ---- */
+function colL(c){let s='';c++;while(c){const m=(c-1)%26;s=String.fromCharCode(65+m)+s;c=Math.floor((c-1)/26)}return s}
+async function excelBoletim(oid,bid){const o=db.obras.find(x=>x.id===oid),b=o&&o.boletins.find(x=>x.id===bid);if(!b)return;
+  const C=db.config,D=dadosBol(o),EB=empBol(),ant=bolOrd(o).filter(x=>(x.numero||0)<b.numero),cols=[...ant,b].map(x=>({t:`${x.numero}ª · ${periodoTxt(x)}`,q:it=>+x.qtds[it.id]||0}));
+  const tot=totalItens(o),acT=soma(o.itens,i=>acumItem(o,i,b.numero)*i.preco),v=valorBoletim(o,b),G=cols.length+2,N=6+G*3,X=DOCX.X;
+  const S={tit:1,sub:2,box:3,sec:4,hd:5,tx:6,txc:7,q:8,qg:9,pc:10,mo:11,tt:12,tq:13,tp:14,tm:15,asl:16,asb:17,ass:18,hdq:19};
+  const R={},M=[],H={};const put=(r,c,v,st)=>{(R[r]=R[r]||{})[c]={v,st}};const mg=(r1,c1,r2,c2)=>M.push(colL(c1)+(r1+1)+':'+colL(c2)+(r2+1));
+  const rich=runs=>({rich:runs});
+  put(0,1,'BOLETIM DE MEDIÇÃO',S.tit);mg(0,1,0,N-1);H[0]=24;
+  put(1,1,`${b.numero}ª MEDIÇÃO · Período ${periodoTxt(b)}`,S.sub);mg(1,1,1,N-1);H[1]=16;
+  const lab=t=>({t,b:1,sz:8,cor:'64748B'}),txt=t=>({t,sz:9}),neg=t=>({t,b:1,sz:10});
+  const box1=rich([lab('DADOS DA CONTRATADA\n'),neg(EB.toUpperCase()+'\n'),txt('CNPJ: '+(C.cnpj||'—')+'\nBanco / Agência: '+(C.banco||'—')+'\nConta / Operação: '+(C.conta||'—')+(C.pix?'\nPIX: '+C.pix:''))]);
+  const box2=rich([lab('DADOS DA OBRA / CONTRATO\n'),txt('Obra: '),neg(D.obra+'\n'),txt('Contratante: '+(D.contratante||'—')+'\nCNPJ: '+(D.cnpjContratante||'—')+'\nNº contrato: '+(D.numContrato||'—')+'\nPrazo: '+(D.prazo?D.prazo+' dias':'—')+(D.local?'\nLocal: '+D.local:''))]);
+  const box3=rich([lab('VALOR DESTA MEDIÇÃO\n'),{t:fm(v)+'\n',b:1,sz:14,cor:'1E3A8A'},txt('Acumulado: '+fm(acT)+' ('+fp(tot?acT/tot*100:0)+')\nSaldo: '+fm(Math.max(0,tot-acT)))]);
+  const b2a=6,b3a=N-Math.min(6,Math.max(3,Math.floor((N-6)/2)));put(3,0,box1,S.box);mg(3,0,3,b2a-1);put(3,b2a,box2,S.box);mg(3,b2a,3,b3a-1);put(3,b3a,box3,S.box);mg(3,b3a,3,N-1);H[3]=104;
+  for(let c=0;c<N;c++)if(!R[3][c])put(3,c,'',S.box);
+  put(5,0,'Planilha de medição',S.sec);mg(5,0,5,N-1);H[5]=20;
+  const h1=6,h2=7;['Item','Serviços','Un','Qtde','Preço unit.','Preço total'].forEach((t,c)=>{put(h1,c,t,c===3?S.hdq:S.hd);put(h2,c,'',S.hd);mg(h1,c,h2,c)});
+  [...cols.map(x=>x.t),'Acumulado atual','Saldo contratual'].forEach((t,k)=>{const c0=6+k*3;put(h1,c0,t,S.hd);put(h1,c0+1,'',S.hd);put(h1,c0+2,'',S.hd);mg(h1,c0,h1,c0+2);put(h2,c0,'Qtde',S.hdq);put(h2,c0+1,'%',S.hd);put(h2,c0+2,'Valor',S.hd)});H[h1]=30;H[h2]=16;
+  let r=h2+1;o.itens.forEach((it,ix)=>{const ac=acumItem(o,it,b.numero),sal=Math.max(0,it.qtd-ac),pc=x=>it.qtd?x/it.qtd:0;
+    put(r,0,ix+1,S.txc);put(r,1,it.servico,S.tx);put(r,2,it.un,S.txc);put(r,3,+it.qtd,S.qg);put(r,4,+it.preco,S.mo);put(r,5,r2(it.qtd*it.preco),S.mo);
+    const grp=(k,q)=>{const c0=6+k*3;put(r,c0,q,S.qg);put(r,c0+1,pc(q),S.pc);put(r,c0+2,r2(q*it.preco),S.mo)};
+    cols.forEach((x,k)=>grp(k,x.q(it)));grp(cols.length,ac);grp(cols.length+1,sal);H[r]=18;r++});
+  put(r,0,'TOTAL',S.tt);mg(r,0,r,2);put(r,1,'',S.tt);put(r,2,'',S.tt);put(r,3,'',S.tq);put(r,4,'',S.tt);put(r,5,r2(tot),S.tm);
+  const tg=(k,val)=>{const c0=6+k*3;put(r,c0,'',S.tq);put(r,c0+1,tot?val/tot:0,S.tp);put(r,c0+2,r2(val),S.tm)};
+  cols.forEach((x,k)=>tg(k,soma(o.itens,i=>x.q(i)*i.preco)));tg(cols.length,acT);tg(cols.length+1,Math.max(0,tot-acT));H[r]=20;
+  const ra=r+4,meio=Math.floor(N/2);
+  [[0,Math.max(5,meio-2),EB.toUpperCase(),C.cnpj,'Contratada'],[Math.min(N-1,meio+1),N-1,(D.contratante||'').toUpperCase(),D.cnpjContratante,'Contratante']].forEach(([c1,c2,nm,cn,pap])=>{
+    for(let c=c1;c<=c2;c++)put(ra,c,'',S.asl);mg(ra+1,c1,ra+1,c2);put(ra+1,c1,nm,S.asb);mg(ra+2,c1,ra+2,c2);put(ra+2,c1,(cn?'CNPJ '+cn+'   ·   ':'')+pap,S.ass)});
+  H[ra]=30;
+  const wid=[5,30,5,9,9,11,...Array.from({length:G},()=>[8,6.5,10]).flat()];
+  const cel=(rr,c,x)=>{const ref=colL(c)+(rr+1),st=` s="${x.st||0}"`;if(x.v==null||x.v==='')return `<c r="${ref}"${st}/>`;
+    if(typeof x.v==='number')return `<c r="${ref}"${st}><v>${x.v}</v></c>`;
+    if(x.v&&x.v.rich)return `<c r="${ref}"${st} t="inlineStr"><is>${x.v.rich.map(u=>`<r><rPr>${u.b?'<b/>':''}<sz val="${u.sz||9}"/><color rgb="FF${u.cor||'0F172A'}"/><rFont val="Calibri"/></rPr><t xml:space="preserve">${X(u.t)}</t></r>`).join('')}</is></c>`;
+    return `<c r="${ref}"${st} t="inlineStr"><is><t xml:space="preserve">${X(x.v)}</t></is></c>`};
+  const rows=Object.keys(R).map(Number).sort((a,b)=>a-b).map(rr=>`<row r="${rr+1}"${H[rr]?` ht="${H[rr]}" customHeight="1"`:''}>${Object.keys(R[rr]).map(Number).sort((a,b)=>a-b).map(c=>cel(rr,c,R[rr][c])).join('')}</row>`).join('');
+  const lg=$('logoPrime')?$('logoPrime').src:'',temLogo=lg.startsWith('data:image/png')||lg.startsWith('data:image/jpeg');const lext=/png/.test(lg.slice(0,20))?'png':'jpeg';
+  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0" showGridLines="0" zoomScale="90"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>${wid.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${rows}</sheetData><mergeCells count="${M.length}">${M.map(m=>`<mergeCell ref="${m}"/>`).join('')}</mergeCells><pageMargins left="0.3" right="0.3" top="0.4" bottom="0.4" header="0.2" footer="0.2"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>${temLogo?'<drawing r:id="rId1"/>':''}</worksheet>`;
+  const brd='<border><left style="thin"><color rgb="FFCBD5E1"/></left><right style="thin"><color rgb="FFCBD5E1"/></right><top style="thin"><color rgb="FFCBD5E1"/></top><bottom style="thin"><color rgb="FFCBD5E1"/></bottom><diagonal/></border>';
+  const xf=(f,fi,bo,nf,al)=>`<xf numFmtId="${nf||0}" fontId="${f}" fillId="${fi}" borderId="${bo}" applyFont="1" applyFill="1" applyBorder="1"${nf?' applyNumberFormat="1"':''} applyAlignment="1"><alignment ${al||'vertical="center"'}/></xf>`;
+  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="3"><numFmt numFmtId="164" formatCode="#,##0.00"/><numFmt numFmtId="165" formatCode="0.0%"/><numFmt numFmtId="166" formatCode="#,##0.###"/></numFmts>
+<fonts count="8"><font><sz val="10"/><name val="Calibri"/></font><font><b/><sz val="16"/><color rgb="FF1E3A8A"/><name val="Calibri"/></font><font><b/><sz val="10"/><color rgb="FF64748B"/><name val="Calibri"/></font><font><b/><sz val="12"/><color rgb="FF1E3A8A"/><name val="Calibri"/></font><font><b/><sz val="9"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><sz val="9"/><color rgb="FF0F172A"/><name val="Calibri"/></font><font><b/><sz val="9"/><color rgb="FF0F172A"/><name val="Calibri"/></font><font><sz val="8"/><color rgb="FF475569"/><name val="Calibri"/></font></fonts>
+<fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1E3A8A"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF1F5F9"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE2E8F0"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF8FAFC"/></patternFill></fill></fills>
+<borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border>${brd}<border><left/><right/><top style="thin"><color rgb="FF0F172A"/></top><bottom/><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="20">${[
+  xf(0,0,0),xf(1,0,0),xf(2,0,0),xf(5,5,1,0,'vertical="top" wrapText="1"'),xf(3,0,0),
+  xf(4,2,1,0,'horizontal="center" vertical="center" wrapText="1"'),xf(5,0,1),xf(5,0,1,0,'horizontal="center" vertical="center"'),xf(5,0,1,166,'horizontal="right" vertical="center"'),xf(5,3,1,166,'horizontal="right" vertical="center"'),
+  xf(5,0,1,165,'horizontal="right" vertical="center"'),xf(5,0,1,164,'horizontal="right" vertical="center"'),xf(6,4,1),xf(6,4,1,166,'horizontal="right" vertical="center"'),xf(6,4,1,165,'horizontal="right" vertical="center"'),
+  xf(6,4,1,164,'horizontal="right" vertical="center"'),xf(5,0,2),xf(6,0,0,0,'horizontal="center" vertical="center"'),xf(7,0,0,0,'horizontal="center" vertical="center"'),xf(4,2,1,0,'horizontal="center" vertical="center" wrapText="1"')].join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const arqs=[
+    {nome:'[Content_Types].xml',dados:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Default Extension="jpeg" ContentType="image/jpeg"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${temLogo?'<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>':''}</Types>`},
+    {nome:'_rels/.rels',dados:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+    {nome:'xl/workbook.xml',dados:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Medição ${b.numero}" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">'Medição ${b.numero}'!$A$1:$${colL(N-1)}$${ra+3}</definedName></definedNames></workbook>`},
+    {nome:'xl/_rels/workbook.xml.rels',dados:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
+    {nome:'xl/styles.xml',dados:styles},{nome:'xl/worksheets/sheet1.xml',dados:sheet}];
+  if(temLogo){const e=Math.round(0.95*360000);arqs.push({nome:'xl/worksheets/_rels/sheet1.xml.rels',dados:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>'},
+    {nome:'xl/drawings/_rels/drawing1.xml.rels',dados:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/logo.${lext}"/></Relationships>`},
+    {nome:'xl/drawings/drawing1.xml',dados:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><xdr:oneCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>19050</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>19050</xdr:rowOff></xdr:from><xdr:ext cx="${e}" cy="${e}"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="2" name="Logo"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${e}" cy="${e}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor></xdr:wsDr>`},
+    {nome:'xl/media/logo.'+lext,dados:dataUrlBytes(lg)})}
+  const blob=DOCX.zip(arqs,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  const nome=('Boletim '+b.numero+'a medicao - '+D.obra).replace(/[\\/:*?"<>|]+/g,'-')+'.xlsx';if(await baixar(nome,blob))toast('📊 Excel baixado: '+nome)}
 /* ================= RECIBO WHATSAPP ================= */
 function extenso(v){v=Math.round((+v||0)*100);const r=Math.floor(v/100),c=v%100;
   const U=['zero','um','dois','três','quatro','cinco','seis','sete','oito','nove','dez','onze','doze','treze','quatorze','quinze','dezesseis','dezessete','dezoito','dezenove'],D=['','','vinte','trinta','quarenta','cinquenta','sessenta','setenta','oitenta','noventa'],C=['','cento','duzentos','trezentos','quatrocentos','quinhentos','seiscentos','setecentos','oitocentos','novecentos'];
@@ -4904,7 +5035,7 @@ function renderBoletim(o,box){
   ${o.itens.length?`<section class="card"><div class="card-head"><h2>🧾 Medições desta obra</h2></div>
     ${bs.length?`<div class="med-lista">${bs.slice().reverse().map(b=>{const v=valorBoletim(o,b);
       return `<div class="med-card"><div class="med-top"><div><b>${b.numero}ª medição</b><div class="obs">${periodoTxt(b)}</div></div><div class="med-val">${fm(v)}</div></div>
-      <div class="med-bot">${segStatus(o,b)}<span class="acoes"><button class="ac ac-e" onclick="abrirBoletim('${b.id}')" title="Editar">✏️</button><button class="ac ac-d" onclick="relBoletim(obraAtual(),'${b.id}')" title="Imprimir">🖨️</button><button class="ac ac-z" onclick="pacoteMedicao(obraAtual().id,'${b.id}')" title="Pacote da medição: boletim + resumo + diário + fotos">📦</button><button class="ac ac-x" onclick="excluirBoletim('${b.id}')" title="Excluir">🗑️</button></span></div>
+      <div class="med-bot">${segStatus(o,b)}<span class="acoes"><button class="ac ac-e" onclick="abrirBoletim('${b.id}')" title="Editar">✏️</button><button class="ac ac-d" onclick="relBoletim(obraAtual(),'${b.id}')" title="Imprimir">🖨️</button><button class="ac ac-z" onclick="excelBoletim(obraAtual().id,'${b.id}')" title="Baixar em Excel">📊</button><button class="ac ac-z" onclick="pacoteMedicao(obraAtual().id,'${b.id}')" title="Pacote da medição: boletim + resumo + diário + fotos">📦</button><button class="ac ac-x" onclick="excluirBoletim('${b.id}')" title="Excluir">🗑️</button></span></div>
       </div></div>`}).join('')}</div>`:'<div class="vazio">Nenhuma medição lançada ainda. Toque em <b>+ Nova medição</b>.</div>'}
   </section>`:''}`;
 }
