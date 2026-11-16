@@ -4151,6 +4151,7 @@ function txtDiarioZap(o,r){const C=(o.consumos||[]).filter(c=>dataConsumo(c)===r
   L.push('📔 *RELATÓRIO DIÁRIO DE OBRA*');L.push('🏗️ *'+o.nome.toUpperCase()+'*');
   L.push('📅 '+diaSemTxt(r.d).replace(/^./,c=>c.toUpperCase())+', '+fd(r.d)+(r.clima?' · ☀️ '+r.clima:''));
   if(r.equipe)L.push('👷 Equipe: '+r.equipe);
+  if(o.respDiario&&o.respDiario.nome)L.push('🧑‍💼 Responsável: '+respDiarioTxt(o));
   if(r.ativ){L.push('');L.push('✅ *Serviços executados:*');String(r.ativ).split(/\n+/).map(s=>s.trim()).filter(Boolean).forEach(s=>L.push('• '+s.replace(/^[-•*]\s*/,'')))}
   if(C.length){L.push('');L.push('🧪 *Material usado:*');C.forEach(c=>L.push('• '+nomeMat(c)+': '+fq(c.q)+' '+(c.un||'')+(c.obs?' ('+c.obs+')':'')))}
   if(r.ocor&&!/^0+$/.test(String(r.ocor).trim())){L.push('');L.push('⚠️ *Ocorrências:* '+r.ocor)}
@@ -4158,10 +4159,20 @@ function txtDiarioZap(o,r){const C=(o.consumos||[]).filter(c=>dataConsumo(c)===r
   if((r.fotos||[]).length){L.push('');L.push('📷 '+r.fotos.length+' foto(s) registradas no diário')}
   L.push('');L.push('— '+(db.config.empresa||''));return L.join('\n')}
 async function fotosArquivos(ids,max){const F=[];for(const id of ids){const u=await imgReduzida(id,max||1280);if(!u)continue;const b=await (await fetch(u)).blob();F.push(new File([b],'foto_'+(F.length+1)+'.jpg',{type:'image/jpeg'}))}return F}
+function respDiarioTxt(o){const r=o&&o.respDiario;return r&&r.nome?r.nome+(r.papel?' – '+r.papel:''):''}
+function seguirZap(oid,rid,modo){const o=db.obras.find(x=>x.id===oid),r=o&&diarioObra(o).find(x=>x.id===rid);if(!r)return;if(modo==='fotos')compartilharDiario(oid,rid);else abrirZapTxt(txtDiarioZap(o,r),'📲 Relatório do dia',true)}
+function escolherResp(oid,rid,modo){const o=db.obras.find(x=>x.id===oid);if(!o)return;const nomes=[...new Set([...equipe().filter(p=>p.ativo!==false).map(p=>p.nome),...arr('encarregados').map(e=>e.nome)].filter(Boolean))].sort((a,b)=>a.localeCompare(b));window._respNomes=nomes;
+  const sg=`seguirZap('${oid}','${rid}','${modo}')`,it=[];if(o.respDiario&&o.respDiario.nome)it.push(['✅','Usar '+esc(respDiarioTxt(o)),sg]);
+  nomes.forEach((n,i)=>it.push(['👷',esc(n),`window._respNome=window._respNomes[${i}];papelResp('${oid}','${rid}','${modo}')`]));
+  it.push(['✍️','Digitar outro nome',`outroResp('${oid}','${rid}','${modo}')`],['🚫','Enviar sem responsável',`limparResp('${oid}');${sg}`]);abrirMenu('🧑‍💼 Responsável pela obra',it)}
+async function outroResp(oid,rid,modo){const n=((await pedirTexto('🧑‍💼 Responsável pela obra','Nome do responsável (encarregado, engenheiro…)'))||'').trim();if(!n)return;window._respNome=n;papelResp(oid,rid,modo)}
+function papelResp(oid,rid,modo){abrirMenu('Função de '+esc(window._respNome||''),[['🦺','Encarregado',`setResp('${oid}','${rid}','${modo}','Encarregado')`],['👷','Engenheiro',`setResp('${oid}','${rid}','${modo}','Engenheiro')`],['🧱','Mestre de obras',`setResp('${oid}','${rid}','${modo}','Mestre de obras')`],['📋','Responsável técnico',`setResp('${oid}','${rid}','${modo}','Responsável técnico')`]])}
+function setResp(oid,rid,modo,papel){const o=db.obras.find(x=>x.id===oid);if(!o)return;o.respDiario={nome:window._respNome||'',papel};salvar();seguirZap(oid,rid,modo)}
+function limparResp(oid){const o=db.obras.find(x=>x.id===oid);if(o&&o.respDiario){delete o.respDiario;salvar()}}
 function zapDiario(oid,rid){const o=db.obras.find(x=>x.id===oid),r=o&&diarioObra(o).find(x=>x.id===rid);if(!r)return;const t=txtDiarioZap(o,r);
   const podeFotos=(r.fotos||[]).length&&navigator.canShare;
-  abrirMenu('📲 Relatório do dia no WhatsApp',[['💬','Enviar o texto no grupo da obra',`abrirZapTxt(txtDiarioZap(db.obras.find(x=>x.id==='${oid}'),diarioObra(db.obras.find(x=>x.id==='${oid}')).find(x=>x.id==='${rid}')),'📲 Relatório do dia',true)`],
-    ...(podeFotos?[['📷',`Enviar texto + ${r.fotos.length} foto(s)`,`compartilharDiario('${oid}','${rid}')`]]:[]),
+  abrirMenu('📲 Relatório do dia no WhatsApp',[['💬','Enviar o texto no grupo da obra',`escolherResp('${oid}','${rid}','txt')`],
+    ...(podeFotos?[['📷',`Enviar texto + ${r.fotos.length} foto(s)`,`escolherResp('${oid}','${rid}','fotos')`]]:[]),
     ['📄','Baixar este dia em Word (com fotos)',`wordDiario('${oid}','${rid}')`]])}
 async function compartilharDiario(oid,rid){const o=db.obras.find(x=>x.id===oid),r=o&&diarioObra(o).find(x=>x.id===rid);if(!r)return;const t=txtDiarioZap(o,r);
   toast('Preparando as fotos…');let F=[];try{F=await fotosArquivos(r.fotos||[],1280)}catch(e){}
@@ -4182,7 +4193,7 @@ const DOCX=(()=>{const T=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for
     return new Blob([...partes,...central,e.buffer],{type:mime||'application/vnd.openxmlformats-officedocument.wordprocessingml.document'})}
   const X=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const run=(t,o)=>{o=o||{};const pr=(o.b?'<w:b/>':'')+(o.cor?`<w:color w:val="${o.cor}"/>`:'')+(o.sz?`<w:sz w:val="${o.sz*2}"/>`:'');return String(t).split('\n').map((s,i)=>(i?'<w:r><w:br/></w:r>':'')+`<w:r>${pr?'<w:rPr>'+pr+'</w:rPr>':''}<w:t xml:space="preserve">${X(s)}</w:t></w:r>`).join('')};
-  const par=(conteudo,o)=>{o=o||{};return `<w:p><w:pPr>${o.center?'<w:jc w:val="center"/>':''}<w:spacing w:before="${o.antes||0}" w:after="${o.depois==null?80:o.depois}"/></w:pPr>${conteudo}</w:p>`};
+  const par=(conteudo,o)=>{o=o||{};return `<w:p><w:pPr>${o.keep?'<w:keepNext/><w:keepLines/>':''}${o.center?'<w:jc w:val="center"/>':''}<w:spacing w:before="${o.antes||0}" w:after="${o.depois==null?80:o.depois}"/></w:pPr>${conteudo}</w:p>`};
   function novo(){const midias=[];let nId=1;
     function img(bytes,ext,wCm,hCm){const i=midias.length+1,rid='rIdImg'+i;midias.push({nome:`word/media/img${i}.${ext}`,dados:bytes,rid,ext});const cx=Math.round(wCm*360000),cy=Math.round(hCm*360000),id=nId++;
       return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${id}" name="Imagem ${id}"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${id}" name="img${i}.${ext}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`}
@@ -4202,20 +4213,24 @@ async function wordDiario(oid,rid){const o=db.obras.find(x=>x.id===oid);if(!o)re
   const nF=L.reduce((s,r)=>s+(r.fotos||[]).length,0);toast(nF?'Montando o Word com '+nF+' foto(s)…':'Montando o Word…');
   const D=DOCX.novo(),{run,par,tabela}=DOCX,C=db.config,partes=[];
   const lg=$('logoPrime')?$('logoPrime').src:'';let cab=par(run('RELATÓRIO DIÁRIO DE OBRA',{b:1,sz:16,cor:'1E3A8A'}),{depois:40})+par(run(String(C.empresa||'').toUpperCase()+(C.cnpj?' · CNPJ '+C.cnpj:''),{sz:9,cor:'475569'}),{depois:0});
-  if(lg&&lg.startsWith('data:image')){const ext=/png/.test(lg.slice(0,30))?'png':'jpeg',t=await tamImg(lg),h=1.8,w=Math.min(4,h*t.w/t.h);partes.push(tabela([[par(D.img(dataUrlBytes(lg),ext,w,h),{depois:0}),cab]],[1600,8500]))}else partes.push(cab);
+  if(lg&&lg.startsWith('data:image')){const ext=/png/.test(lg.slice(0,30))?'png':'jpeg',t=await tamImg(lg),h=1.6,w=Math.min(4,h*t.w/t.h);partes.push(par(D.img(dataUrlBytes(lg),ext,w,h),{depois:60}))}partes.push(cab);
   partes.push(par(run('Obra: ',{b:1})+run(o.nome)+(o.contratante?run('   ·   Contratante: ',{b:1})+run(o.contratante):'')+(o.local?run('   ·   Local: ',{b:1})+run(o.local):''),{antes:160,depois:160}));
   for(const r of L){partes.push(par(run(diaSemTxt(r.d).replace(/^./,c=>c.toUpperCase())+', '+fd(r.d)+(r.clima?'  ·  Clima: '+r.clima:'')+(r.pronta?'  ·  OBRA PRONTA':''),{b:1,sz:12,cor:'1E3A8A'}),{antes:200,depois:80}));
     if(r.equipe)partes.push(par(run('Equipe: ',{b:1})+run(r.equipe)));
+    if(o.respDiario&&o.respDiario.nome)partes.push(par(run('Responsável: ',{b:1})+run(respDiarioTxt(o))));
     if(r.ativ)partes.push(par(run('Serviços executados:',{b:1})+'<w:r><w:br/></w:r>'+run(r.ativ)));
     const Cm=(o.consumos||[]).filter(c=>dataConsumo(c)===r.d);if(Cm.length)partes.push(par(run('Material usado: ',{b:1})+run(Cm.map(c=>nomeMat(c)+' '+fq(c.q)+' '+(c.un||'')).join('; '))));
     if(r.ocor&&!/^0+$/.test(String(r.ocor).trim()))partes.push(par(run('Ocorrências: ',{b:1})+run(r.ocor)));
-    const fotos=[];for(const id of (r.fotos||[])){const u=await imgReduzida(id,1100);if(!u)continue;const t=await tamImg(u),W=7.6,H=8.5,k=Math.min(W/t.w,H/t.h);fotos.push(par(D.img(dataUrlBytes(u),'jpeg',t.w*k,t.h*k),{center:1,depois:120}))}
-    if(fotos.length){const lin=[];for(let i=0;i<fotos.length;i+=2)lin.push([fotos[i],fotos[i+1]||'']);partes.push(tabela(lin,[5050,5050]))}}
-  partes.push(par('',{antes:600}));partes.push(tabela([[par(run('______________________________')+'<w:r><w:br/></w:r>'+run(String(C.empresa||'').toUpperCase(),{b:1})+'<w:r><w:br/></w:r>'+run('Responsável'),{center:1}),par(run('______________________________')+'<w:r><w:br/></w:r>'+run(String(o.contratante||'').toUpperCase(),{b:1})+'<w:r><w:br/></w:r>'+run('Fiscalização'),{center:1})]],[5050,5050]));
+    const fotos=[];for(const id of (r.fotos||[])){const u=await imgReduzida(id,1100);if(!u)continue;const t=await tamImg(u),W=8,H=8,k=Math.min(W/t.w,H/t.h);fotos.push(D.img(dataUrlBytes(u),'jpeg',t.w*k,t.h*k))}
+    for(let i=0;i<fotos.length;i+=2)partes.push(par(fotos[i]+(fotos[i+1]?run('   ')+fotos[i+1]:''),{center:1,antes:60,depois:60}))}
+  partes.push(par('',{antes:500,keep:1}));
+  partes.push(par(run('________________________________')+'<w:r><w:br/></w:r>'+run(String(C.empresa||'').toUpperCase(),{b:1})+'<w:r><w:br/></w:r>'+run(o.respDiario&&o.respDiario.nome?respDiarioTxt(o):'Responsável'),{center:1,depois:400,keep:1}));
+  partes.push(par(run('________________________________')+'<w:r><w:br/></w:r>'+run(String(o.contratante||'').toUpperCase(),{b:1})+'<w:r><w:br/></w:r>'+run('Fiscalização'),{center:1}));
   const blob=D.gerar(partes.join(''));const nome=('Diario '+o.nome+(rid&&L[0]?' '+L[0].d:'')).replace(/[\\/:*?"<>|]+/g,'-')+'.docx';
   if(await baixar(nome,blob))toast('📄 Word baixado: '+nome)}
 
 /* ---- Boletim de medição em Excel (mesmo visual do boletim impresso) ---- */
+if(typeof colsBoletim!=='function')window.colsBoletim=function(ant,b){return[{t:ant.length?`Acumulado anterior (até a ${ant[ant.length-1].numero}ª)`:'Acumulado anterior',q:it=>soma(ant,x=>+x.qtds[it.id]||0)},{t:`${b.numero}ª medição · ${periodoTxt(b)}`,q:it=>+b.qtds[it.id]||0}]};
 function colL(c){let s='';c++;while(c){const m=(c-1)%26;s=String.fromCharCode(65+m)+s;c=Math.floor((c-1)/26)}return s}
 async function excelBoletim(oid,bid){const o=db.obras.find(x=>x.id===oid),b=o&&o.boletins.find(x=>x.id===bid);if(!b)return;
   const C=db.config,D=dadosBol(o),EB=empBol(),ant=bolOrd(o).filter(x=>(x.numero||0)<b.numero),cols=colsBoletim(ant,b);
