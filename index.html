@@ -1603,7 +1603,6 @@ function renderGeral(){
   <div class="filtros pn-fil">
     <select onchange="db.ui.filtroCt=this.value;db.ui.filtroOb='';salvar();render()"><option value="">🏢 Todas as contratantes</option>${cts.map(([k,n])=>`<option value="${esc(k)}" ${k===fct?'selected':''}>${esc(n)}</option>`).join('')}</select>
     <select onchange="db.ui.filtroOb=this.value;salvar();render()"><option value="">🏗️ Todas as obras${fct?' desta contratante':''}</option>${obrasCt.slice().sort((a,b)=>a.nome.localeCompare(b.nome)).map(o=>`<option value="${o.id}" ${o.id===fob?'selected':''}>${esc(o.nome)}</option>`).join('')}</select>
-    ${fct||fob?`<button class="btn btn-cinza btn-sm" onclick="db.ui.filtroCt='';db.ui.filtroOb='';salvar();render()">✖ Limpar</button>`:''}
   </div>
   <div class="status-grid">
     <div class="st-card bg-lucro"><b>${cont.lucro}</b><span>🟢 No lucro</span></div>
