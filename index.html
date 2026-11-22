@@ -1797,7 +1797,7 @@ function renderAba(o,cP,cT,abaF,boxF){
   if(aba==='crono'){renderCrono(o,box);return}
   if(aba==='entrega'){renderEntrega(o,box);return}
   if(aba==='gastos'){
-    const f=db.ui.filtro;const catsUsadas=[...new Set(o.gastos.map(g=>g.categoria))];
+    const f=db.ui.filtro;const catsUsadas=[...new Set(o.gastos.map(g=>g.categoria))];if(f.cat&&!catsUsadas.includes(f.cat))f.cat='';
     box.innerHTML=`<section class="card"><div class="card-head"><h2>💸 Gastos – ${nomePeriodo()}</h2><button class="btn btn-vermelho btn-sm" onclick="abrirGasto()">+ Novo gasto</button></div>
     <div class="filtros">
       <input id="fBusca" placeholder="🔎 Buscar descrição, fornecedor, NF…" value="${esc(f.busca)}" oninput="db.ui.filtro.busca=this.value;tabelaGastos()">
