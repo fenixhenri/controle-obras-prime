@@ -1617,7 +1617,7 @@ function renderGeral(){
     ${kpi('💰 Recebido',fm(T.recebido),'verde')}
     ${kpi('⏳ A receber (medido)',fm(T.pendente),'laranja')}
     ${kpi('💸 Gasto total',fm(T.gasto),'vermelho',T.semNF?fm(T.semNF)+' sem NF':'')}
-    ${kpi(T.impostos?'📈 Resultado (medido − gasto − impostos)':'📈 Resultado (medido − gasto)',fm(res),res>=0?'azul':'vermelho','Margem '+fp(marg)+(T.impostos?' · impostos '+fm(T.impostos):''))}
+    ${kpi(res>=0?'📈 Lucro até agora':'📉 Prejuízo até agora',fm(res),res>=0?'azul':'vermelho','medido − gasto'+(T.impostos?' − impostos':'')+' · margem '+fp(marg))}
     ${kpi('💧 Saldo de caixa',fm(caixa),caixa>=0?'azul':'vermelho',T.impostos||T.caucao?'recebido líquido − gasto':'recebido − gasto')}${T.caucao-T.cauDev>0.005?kpi('🔒 Caução retida',fm(T.caucao-T.cauDev),'amarelo','volta no fim das obras'):''}
     ${kpi('🏦 Saiu do bolso (não voltou)',fm(T.capital),T.capital>0?'vermelho':'verde','detalhes logo abaixo')}
   </div>
@@ -1639,7 +1639,7 @@ function renderGeral(){
       <td class="r ${c.margemProj==null?'':c.margemProj>=0?'pos':'neg'}">${fp(c.margemProj)}</td>
       <td class="r ${c.capital>0?'neg':''}">${fm(c.capital)}</td></tr>`).join('')}
     </tbody><tfoot><tr><td colspan="3">TOTAL</td><td class="r">${fm(T.contrato)}</td><td class="r">${fm(T.medido)}</td><td class="r amar">${fm(T.aMedir)}</td><td class="r neg">${fm(T.gasto)}</td><td class="r ${res>=0?'pos':'neg'}">${fm(res)}</td><td class="r">${fp(marg)}</td><td></td><td class="r">${fm(T.capital)}</td></tr></tfoot></table></div>
-    <p class="nota">Toque numa obra para abrir. <b>Resultado</b> = medido − gasto. <b>Margem projetada</b> = como a obra fecha se os gastos continuarem no mesmo ritmo da execução.</p>
+    <p class="nota">Toque numa obra para abrir. <b>Lucro</b> = medido − gasto. <b>Margem projetada</b> = como a obra fecha se os gastos continuarem no mesmo ritmo da execução.</p>
   </section>
   <section class="card"><h2>🏢 Resultado por empresa contratante</h2>
     <div class="emp-grid">${E.map(e=>`<div class="emp emp-${e.st.k}">
@@ -1747,7 +1747,7 @@ function renderObra(){
       <div class="ind"><div class="ind-l"><span>Executado (medido)</span><b>${fm(cT.medido)} · ${fp(cT.exec)}</b></div><div class="barra"><i style="width:${cT.exec}%;background:var(--azul2)"></i></div></div>
       <div class="ind"><div class="ind-l"><span>Saldo a medir</span><b class="amar">${fm(cT.aMedir)}</b></div></div>
       <div class="ind"><div class="ind-l"><span>Gasto total</span><b class="neg">${fm(cT.gasto)}</b></div><div class="obs">${cT.contrato?fp(cT.gasto/cT.contrato*100)+' do contrato':''}</div></div>
-      <div class="ind"><div class="ind-l"><span>Resultado atual</span><b class="${cT.resultado>=0?'pos':'neg'}">${fm(cT.resultado)}</b></div><div class="obs">medido − gasto${cT.impostos?" − impostos":""} · margem ${fp(cT.margem)}</div></div>
+      <div class="ind"><div class="ind-l"><span>${cT.resultado>=0?'Lucro até agora':'Prejuízo até agora'}</span><b class="${cT.resultado>=0?'pos':'neg'}">${fm(cT.resultado)}</b></div><div class="obs">medido ${fm(cT.medido)} − gasto ${fm(cT.gasto)}${cT.impostos?' − impostos '+fm(cT.impostos):''} · margem ${fp(cT.margem)}</div></div>
       <div class="ind"><div class="ind-l"><span>Capital próprio empatado</span><b class="${cT.capital>0?'neg':'pos'}">${fm(cT.capital)}</b></div></div>
       <div class="ind"><div class="ind-l"><span>Custo orçado</span><b>${cT.orcado?fm(cT.orcado)+' <a href="#" onclick="abrirOrcamento();return false" title="Editar custo orçado" style="text-decoration:none">✏️</a>':'<a href="#" onclick="abrirOrcamento();return false">definir</a>'}</b></div>
         ${cT.orcado?`<div class="barra"><i style="width:${Math.min(100,orcPct)}%;background:${orcPct>100?'var(--vermelho)':orcPct>85?'var(--amarelo)':'var(--verde)'}"></i></div><div class="obs">${fp(orcPct)} do orçado já gasto · margem orçada ${fp(cT.contrato?(cT.contrato-cT.orcado)/cT.contrato*100:null)}</div>`:''}</div>
@@ -1771,7 +1771,7 @@ function renderObra(){
     ${kpi('💰 Recebido',fm(cP.recebido),'verde')}
     ${kpi('⏳ A receber',fm(cP.pendente),'laranja')}
     ${kpi('💸 Gasto',fm(cP.gasto),'vermelho',cP.gas.length+' lançamento(s)')}
-    ${kpi('📈 Resultado',fm(cP.resultado),cP.resultado>=0?'azul':'vermelho','Margem '+fp(cP.margem))}
+    ${kpi(cP.resultado>=0?'📈 Lucro':'📉 Prejuízo',fm(cP.resultado),cP.resultado>=0?'azul':'vermelho','medido − gasto · margem '+fp(cP.margem))}
     ${kpi('💧 Caixa',fm(cP.caixa),cP.caixa>=0?'azul':'vermelho',retPct(o).tem?'recebido líquido − gasto':'recebido − gasto')}
     ${retPct(o).tem?kpi('🧾 Impostos e retenções',fm(cP.impostos),'cinza',retResumo(o)):''}
     ${cT.caucao>0.005?`<div class="kpi kpi-amarelo"><span>🔒 Caução a receber</span><b>${fm(cT.caucao-cT.cauDev)}</b><small>retida ${fm(cT.caucao)}${cT.cauDev?' · devolvida '+fm(cT.cauDev):''}</small><button class="btn btn-cinza btn-sm" style="margin-top:6px" onclick="abrirCaucao('${o.id}')">Registrar devolução</button></div>`:''}
@@ -3436,7 +3436,7 @@ function relFechamento(key){const[y,m]=key.split('-').map(Number),per={tipo:'mes
   const PE=Object.values(pes).sort((a,b)=>a.nome.localeCompare(b.nome));
   const prod=db.obras.map(o=>{const hd=soma((o.presencas||[]).filter(x=>String(x.d).startsWith(key)),x=>+x.f||0),med=soma(o.boletins.filter(b=>String(b.fim||'').startsWith(key)),b=>valorBoletim(o,b));return{o,hd,med}}).filter(x=>x.hd||x.med);
   const h=`${cab('FECHAMENTO DO MÊS – '+esc(M.toUpperCase()),[esc(db.config.empresa)+' · todas as obras'])}
-  <div class="box">${kp('Medido no mês',fm(T.med))}${kp('Recebido no mês',fm(T.rec))}${kp('Gasto no mês',fm(T.gas))}${T.imp?kp('Impostos e retenções',fm(T.imp)):''}${kp(T.imp?'Resultado (medido − gasto − impostos)':'Resultado (medido − gasto)','<span class="'+(T.med-T.gas-T.imp>=0?'pos':'neg')+'">'+fm(T.med-T.gas-T.imp)+'</span>','#1e3a8a')}${kp('Caixa do mês (recebido − pago)','<span class="'+(T.rec-T.pag>=0?'pos':'neg')+'">'+fm(T.rec-T.pag)+'</span>')}</div>
+  <div class="box">${kp('Medido no mês',fm(T.med))}${kp('Recebido no mês',fm(T.rec))}${kp('Gasto no mês',fm(T.gas))}${T.imp?kp('Impostos e retenções',fm(T.imp)):''}${kp(T.med-T.gas-T.imp>=0?'Lucro do mês':'Prejuízo do mês','<span class="'+(T.med-T.gas-T.imp>=0?'pos':'neg')+'">'+fm(T.med-T.gas-T.imp)+'</span><div style="font-size:10px;color:#64748b;font-weight:400;margin-top:2px">medido − gasto'+(T.imp?' − impostos':'')+'</div>','#1e3a8a')}${kp('Caixa do mês (recebido − pago)','<span class="'+(T.rec-T.pag>=0?'pos':'neg')+'">'+fm(T.rec-T.pag)+'</span>')}</div>
   <div class="box">${kp('A receber (todas as medições pendentes)',fm(recPend))}${kp('A pagar (gastos pendentes)',fm(soma(aPagar,x=>x.g.valorTotal)))}</div>
   ${(()=>{const fx=totalFixas(),rt=soma(retiradasMes(key),r=>r.valor),ge=soma(empGMes(key),g=>g.valor);if(!fx&&!rt&&!ge)return '';const liq=T.med-T.gas-fx-ge;return `<div class="box">${kp('Despesas fixas da empresa',fm(fx))}${ge?kp('Gastos da empresa (sem obra)',fm(ge)):''}${kp(ge?'Resultado após despesas da empresa':'Resultado após despesas fixas','<span class="'+(liq>=0?'pos':'neg')+'">'+fm(liq)+'</span>','#1e3a8a')}${kp('Retiradas / pró-labore',fm(rt))}${kp('Sobra após retiradas','<span class="'+(liq-rt>=0?'pos':'neg')+'">'+fm(liq-rt)+'</span>')}</div>`})()}
   <h2>Resultado por obra – ${esc(M)}</h2>${L.length?`<table><thead><tr><th>Obra</th><th>Contratante</th><th class="r">Medido</th><th class="r">Recebido</th><th class="r">Gasto</th><th class="r">Resultado</th></tr></thead><tbody>
@@ -5021,7 +5021,7 @@ function hb(v,max,cor){const p=max>0?Math.max(0,Math.min(100,v/max*100)):0;retur
 function cab(titulo,linhas){const lg=$('logoPrime')?$('logoPrime').src:'';return `<div class="top"><div class="rel-marca">${lg?`<img src="${lg}" alt="">`:''}<div><h1>${titulo}</h1>${linhas.filter(Boolean).map(l=>`<div class="sub">${l}</div>`).join('')}</div></div></div>`}
 function infoObra(o){return [o.contratante?'Empresa contratante: <b>'+esc(o.contratante)+'</b>':'',o.local?esc(o.local):''].filter(Boolean).join(' · ')}
 function blocoAcumulado(o){const c=calc(o),st=statusObra(c);
-  return `<div class="box">${kp('Contrato',fm(c.contrato))}${kp('Medido',fm(c.medido)+' ('+fp(c.exec)+')')}${kp('Saldo a medir',fm(c.aMedir)+' ('+fp(c.contrato?c.aMedir/c.contrato*100:null)+')')}${kp('Recebido',fm(c.recebido))}${kp('A receber',fm(c.pendente))}${kp('Gasto',fm(c.gasto))}${c.impostos?kp('Impostos e retenções',fm(c.impostos)+' · '+retResumo(o)):''}${c.caucao?kp('Caução a receber',fm(c.caucao-c.cauDev)):''}${kp(c.impostos?'Resultado (medido − gasto − impostos)':'Resultado (medido − gasto)','<span class="'+(c.resultado>=0?'pos':'neg')+'">'+fm(c.resultado)+'</span> · '+fp(c.margem),COR_ST[st.k])}${kp('Capital próprio empatado',fm(c.capital))}${c.resProj!=null?kp('Resultado projetado no fim',fm(c.resProj)+' ('+fp(c.margemProj)+')'):''}</div>`}
+  return `<div class="box">${kp('Contrato',fm(c.contrato))}${kp('Medido',fm(c.medido)+' ('+fp(c.exec)+')')}${kp('Saldo a medir',fm(c.aMedir)+' ('+fp(c.contrato?c.aMedir/c.contrato*100:null)+')')}${kp('Recebido',fm(c.recebido))}${kp('A receber',fm(c.pendente))}${kp('Gasto',fm(c.gasto))}${c.impostos?kp('Impostos e retenções',fm(c.impostos)+' · '+retResumo(o)):''}${c.caucao?kp('Caução a receber',fm(c.caucao-c.cauDev)):''}${kp(c.resultado>=0?'Lucro até agora':'Prejuízo até agora','<span class="'+(c.resultado>=0?'pos':'neg')+'">'+fm(c.resultado)+'</span> · '+fp(c.margem)+'<div style="font-size:10px;color:#64748b;font-weight:400;margin-top:2px">medido '+fm(c.medido)+' − gasto '+fm(c.gasto)+(c.impostos?' − impostos '+fm(c.impostos):'')+'</div>',COR_ST[st.k])}${kp('Capital próprio empatado',fm(c.capital))}${c.resProj!=null?kp(c.resProj>=0?'Lucro previsto no fim':'Prejuízo previsto no fim',fm(c.resProj)+' ('+fp(c.margemProj)+')'):''}</div>`}
 function tabMedicoes(meds,o){if(!meds.length)return '<p class="sub">Nenhuma medição.</p>';const t=soma(meds,m=>m.valor);
   return `<table><thead><tr><th>Data</th><th>Descrição</th><th class="r">Valor</th><th class="r">% contrato</th><th class="c">Status</th></tr></thead><tbody>${meds.slice().sort((a,b)=>a.data.localeCompare(b.data)).map(m=>`<tr><td>${fd(m.data)}</td><td>${esc(m.descricao)}</td><td class="r">${fm(m.valor)}</td><td class="r">${fp(o.valorContrato?m.valor/o.valorContrato*100:null)}</td><td class="c">${m.status==='Recebido'?'✅ Recebido':'⏳ Pendente'}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="2">Total</td><td class="r">${fm(t)}</td><td class="r">${fp(o.valorContrato?t/o.valorContrato*100:null)}</td><td></td></tr></tfoot></table>`}
 function tabGastos(gas){if(!gas.length)return '<p class="sub">Nenhum gasto.</p>';const t=soma(gas,g=>g.valorTotal);
@@ -5031,7 +5031,7 @@ function tabCategorias(gas,orc){const cats=porCategoria(gas),t=soma(gas,g=>g.val
 function tabMensal(obras){const ms_=mesesComDados(obras);if(!ms_.length)return '<p class="sub">Sem lançamentos.</p>';
   let ac=0;const rows=ms_.map(m=>{const p={tipo:'mes',ano:m.ano,mes:m.mes};let md=0,rc=0,gs=0;obras.forEach(o=>{const c=calc(o,p);md+=c.medido;rc+=c.recebido;gs+=c.gasto});ac+=md-gs;return{m,md,rc,gs,r:md-gs,ac}});
   const mx=Math.max(...rows.map(r=>Math.max(r.md,r.gs)));
-  return `<table><thead><tr><th>Mês</th><th class="r">Medido</th><th class="r">Recebido</th><th class="r">Gasto</th><th class="r">Resultado do mês</th><th class="r">Acumulado</th><th style="width:22%">Medido × gasto</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${MC[r.m.mes]}/${r.m.ano}</td><td class="r">${fm(r.md)}</td><td class="r">${fm(r.rc)}</td><td class="r">${fm(r.gs)}</td><td class="r ${r.r>=0?'pos':'neg'}">${fm(r.r)}</td><td class="r ${r.ac>=0?'pos':'neg'}">${fm(r.ac)}</td><td>${hb(r.md,mx,'#2563eb')}<div style="height:3px"></div>${hb(r.gs,mx,'#dc2626')}</td></tr>`).join('')}</tbody></table><p class="sub" style="font-size:10px">Barra azul = medido · barra vermelha = gasto</p>`}
+  return `<table><thead><tr><th>Mês</th><th class="r">Medido</th><th class="r">Recebido</th><th class="r">Gasto</th><th class="r">Lucro do mês</th><th class="r">Acumulado</th><th style="width:22%">Medido × gasto</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${MC[r.m.mes]}/${r.m.ano}</td><td class="r">${fm(r.md)}</td><td class="r">${fm(r.rc)}</td><td class="r">${fm(r.gs)}</td><td class="r ${r.r>=0?'pos':'neg'}">${fm(r.r)}</td><td class="r ${r.ac>=0?'pos':'neg'}">${fm(r.ac)}</td><td>${hb(r.md,mx,'#2563eb')}<div style="height:3px"></div>${hb(r.gs,mx,'#dc2626')}</td></tr>`).join('')}</tbody></table><p class="sub" style="font-size:10px">Barra azul = medido · barra vermelha = gasto</p>`}
 function alertasObra(o){const c=calc(o),a=[];
   if(c.margemProj!=null&&c.margemProj<0)a.push(`No ritmo atual o custo final projetado é ${fm(c.custoProj)} — prejuízo projetado de ${fm(-c.resProj)}.`);
   if(c.orcado>0&&c.gasto>c.orcado)a.push(`Gastos passaram do custo orçado em ${fm(c.gasto-c.orcado)}.`);
@@ -5043,7 +5043,7 @@ function relMes(o,ano,mes){
   const per={tipo:'mes',ano,mes},c=calc(o,per),st=statusObra(calc(o));
   abrirImpressao(`Relatório ${MESES[mes]}-${ano} – ${o.nome}`,
   cab(`Relatório Mensal – ${esc(o.nome)}`,[infoObra(o),`Mês: <b>${MESES[mes]}/${ano}</b> · Situação da obra: ${stt(st)}`])+
-  `<h2>Resumo do mês</h2><div class="box">${kp('Medido no mês',fm(c.medido))}${kp('Recebido no mês',fm(c.recebido))}${kp('A receber',fm(c.pendente))}${kp('Gasto no mês',fm(c.gasto)+(o.valorContrato?' ('+fp(c.gasto/o.valorContrato*100)+' do contrato)':''))}${kp('Resultado do mês','<span class="'+(c.resultado>=0?'pos':'neg')+'">'+fm(c.resultado)+'</span>')}${kp('Caixa do mês',fm(c.caixa))}</div>
+  `<h2>Resumo do mês</h2><div class="box">${kp('Medido no mês',fm(c.medido))}${kp('Recebido no mês',fm(c.recebido))}${kp('A receber',fm(c.pendente))}${kp('Gasto no mês',fm(c.gasto)+(o.valorContrato?' ('+fp(c.gasto/o.valorContrato*100)+' do contrato)':''))}${kp(c.resultado>=0?'Lucro do mês':'Prejuízo do mês','<span class="'+(c.resultado>=0?'pos':'neg')+'">'+fm(c.resultado)+'</span>')}${kp('Caixa do mês',fm(c.caixa))}</div>
   <h2>💵 Medições do mês</h2>${tabMedicoes(c.meds,o)}
   <h2>💸 Gastos do mês</h2>${tabGastos(c.gas)}
   <h2>🧩 Gastos do mês por categoria</h2>${tabCategorias(c.gas)}
@@ -5057,7 +5057,7 @@ function relTodos(o){
   <h2>🧩 Gastos por categoria (obra toda)</h2>${tabCategorias(o.gastos,cTemOrc(o)?o.orcamento:null)}`;
   ms_.forEach(m=>{const p={tipo:'mes',ano:m.ano,mes:m.mes},cm=calc(o,p);
     h+=`<div class="pb"></div><div class="mes-h">📅 ${MESES[m.mes]} / ${m.ano}</div>
-    <div class="box">${kp('Medido',fm(cm.medido))}${kp('Recebido',fm(cm.recebido))}${kp('Gasto',fm(cm.gasto))}${kp('Resultado do mês','<span class="'+(cm.resultado>=0?'pos':'neg')+'">'+fm(cm.resultado)+'</span>')}</div>
+    <div class="box">${kp('Medido',fm(cm.medido))}${kp('Recebido',fm(cm.recebido))}${kp('Gasto',fm(cm.gasto))}${kp(cm.resultado>=0?'Lucro do mês':'Prejuízo do mês','<span class="'+(cm.resultado>=0?'pos':'neg')+'">'+fm(cm.resultado)+'</span>')}</div>
     ${cm.meds.length?'<h2>💵 Medições</h2>'+tabMedicoes(cm.meds,o):''}
     ${cm.gas.length?'<h2>💸 Gastos</h2>'+tabGastos(cm.gas):''}`});
   abrirImpressao(`Relatório completo – ${o.nome}`,h);
@@ -5089,14 +5089,14 @@ function relDashGeral(){
   abrirImpressao('Dashboard geral de obras',
   cab(`Dashboard Geral de Obras – ${esc(db.config.empresa)}`,[`${L.length} obra(s) · ${E.length} empresa(s) contratante(s)`])+
   `<div class="box">${kp('🟢 No lucro',cont.lucro+' obra(s)','#16a34a')}${kp('🟡 Se pagando',cont.empate+' obra(s)','#f59e0b')}${kp('🔴 Prejuízo',cont.prejuizo+' obra(s)','#dc2626')}${kp('🟠 Sem medição',(cont.alerta+cont.neutro)+' obra(s)','#f97316')}</div>
-  <h2>💰 Totais</h2><div class="box">${kp('Contratos',fm(T.contrato))}${kp('Medido',fm(T.medido))}${kp('Saldo a medir',fm(T.aMedir))}${kp('Recebido',fm(T.recebido))}${kp('A receber',fm(T.pendente))}${kp('Gasto',fm(T.gasto))}${kp('Resultado','<span class="'+(res>=0?'pos':'neg')+'">'+fm(res)+'</span> · '+fp(T.medido?res/T.medido*100:null))}${kp('Capital próprio empatado',fm(T.capital))}</div>
+  <h2>💰 Totais</h2><div class="box">${kp('Contratos',fm(T.contrato))}${kp('Medido',fm(T.medido))}${kp('Saldo a medir',fm(T.aMedir))}${kp('Recebido',fm(T.recebido))}${kp('A receber',fm(T.pendente))}${kp('Gasto',fm(T.gasto))}${kp(res>=0?'Lucro até agora':'Prejuízo até agora','<span class="'+(res>=0?'pos':'neg')+'">'+fm(res)+'</span> · '+fp(T.medido?res/T.medido*100:null))}${kp('Capital próprio empatado',fm(T.capital))}</div>
   ${blocoBolso(bolso(db.obras),true)}
   <h2>🏢 Resultado por empresa contratante</h2><table><thead><tr><th>Empresa</th><th>Situação</th><th class="c">Obras</th><th class="r">Contratos</th><th class="r">Medido</th><th class="r">Saldo a medir</th><th class="r">Gasto</th><th class="r">Resultado</th><th class="r">Margem</th><th class="r">Capital próprio</th></tr></thead><tbody>
   ${E.map(e=>`<tr><td><b>${esc(e.nome)}</b><div class="sub" style="font-size:10px">${e.obras.map(x=>esc(x.nome)).join(', ')}</div></td><td>${stt(e.st)}</td><td class="c">${e.n}</td><td class="r">${fm(e.contrato)}</td><td class="r">${fm(e.medido)}</td><td class="r">${fm(e.aMedir)}</td><td class="r">${fm(e.gasto)}</td><td class="r ${e.resultado>=0?'pos':'neg'}">${fm(e.resultado)}</td><td class="r">${fp(e.margem)}</td><td class="r">${fm(e.capital)}</td></tr>`).join('')}</tbody></table>
   <h2>🏆 Ranking das obras</h2><table><thead><tr><th>Obra</th><th>Empresa</th><th>Situação</th><th class="r">Contrato</th><th class="r">Medido</th><th class="r">Saldo a medir</th><th class="r">Gasto</th><th class="r">Resultado</th><th class="r">Margem</th><th class="r">Projetada</th><th style="width:12%"></th></tr></thead><tbody>
   ${L.map(({o,c,st})=>`<tr><td><b>${esc(o.nome)}</b></td><td>${esc(o.contratante||'—')}</td><td>${stt(st)}</td><td class="r">${fm(c.contrato)}</td><td class="r">${fm(c.medido)}</td><td class="r">${fm(c.aMedir)}</td><td class="r">${fm(c.gasto)}</td><td class="r ${c.resultado>=0?'pos':'neg'}">${fm(c.resultado)}</td><td class="r">${fp(c.margem)}</td><td class="r">${fp(c.margemProj)}</td><td>${hb(Math.abs(c.resultado),mxR,COR_ST[st.k])}</td></tr>`).join('')}
   </tbody><tfoot><tr><td colspan="3">Total</td><td class="r">${fm(T.contrato)}</td><td class="r">${fm(T.medido)}</td><td class="r">${fm(T.aMedir)}</td><td class="r">${fm(T.gasto)}</td><td class="r ${res>=0?'pos':'neg'}">${fm(res)}</td><td class="r">${fp(T.medido?res/T.medido*100:null)}</td><td colspan="2"></td></tr></tfoot></table>
-  <p class="sub" style="font-size:10px">Resultado = medido − gasto. 🟢 margem ≥ ${fp(+db.config.faixa)} · 🟡 entre 0% e ${fp(+db.config.faixa)} · 🔴 negativa. Projetada = como a obra fecha se o gasto seguir o ritmo da execução.</p>
+  <p class="sub" style="font-size:10px">Lucro = medido − gasto. 🟢 margem ≥ ${fp(+db.config.faixa)} · 🟡 entre 0% e ${fp(+db.config.faixa)} · 🔴 negativa. Projetada = como a obra fecha se o gasto seguir o ritmo da execução.</p>
   ${L.flatMap(l=>{const a=[];if(l.c.margemProj!=null&&l.c.margemProj<0)a.push(`<b>${esc(l.o.nome)}</b>: prejuízo projetado de ${fm(-l.c.resProj)} no fim da obra.`);if(l.c.capital>0)a.push(`<b>${esc(l.o.nome)}</b>: ${fm(l.c.capital)} do caixa próprio empatado.`);return a}).map((x,i)=>(i?'':'<h2>⚠️ Alertas</h2>')+`<div class="al">${x}</div>`).join('')}
   <h2>📅 Mês a mês – todas as obras</h2>${tabMensal(db.obras)}
   <h2>🧩 Gastos por categoria – todas as obras</h2>${tabCategorias(tg)}`);
