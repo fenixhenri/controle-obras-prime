@@ -1737,7 +1737,7 @@ function renderObra(){
     <div><h2 style="color:var(--azul)">${esc(o.nome)}</h2>
       <div class="obra-info">${[o.contratante,o.local,o.dataInicio?'Início '+fd(o.dataInicio):'',o.status].filter(Boolean).map(esc).join(' · ')}</div>
       <div style="margin-top:6px">${badge(st)} ${cT.margem!=null?`<span class="obs">margem atual ${fp(cT.margem)}</span>`:''}</div></div>
-    <button class="btn btn-cinza btn-sm" onclick="menuObra('${o.id}')">⚙️ Opções</button></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="btn btn-azul btn-sm" onclick="relObraTudo('${o.id}')">🖨️ Imprimir obra</button><button class="btn btn-cinza btn-sm" onclick="menuObra('${o.id}')">⚙️ Opções</button></div></div>
     ${o.obs?`<p class="obs" style="margin-top:8px">${esc(o.obs)}</p>`:''}
   </section>
 
@@ -5062,6 +5062,28 @@ function relTodos(o){
     ${cm.gas.length?'<h2>💸 Gastos</h2>'+tabGastos(cm.gas):''}`});
   abrirImpressao(`Relatório completo – ${o.nome}`,h);
 }
+async function relObraTudo(oid){const o=db.obras.find(x=>x.id===oid);if(!o)return;const c=calc(o),st=statusObra(c),forn=porFornecedor(o.gastos).slice(0,15);
+  const G=o.gastos.slice().sort((a,b)=>String(a.data).localeCompare(String(b.data))),AN=[],AM=new Map();
+  const ids=G.flatMap(g=>g.comp||[]);if(ids.length)toast('Preparando o relatório com '+ids.length+' comprovante(s)…');
+  for(const g of G){const L=[];for(const id of (g.comp||[])){let u='';try{u=await imgReduzida(id,1000)}catch(e){u=''}if(u&&/^data:image/i.test(u)){AN.push({g,u});L.push(AN.length)}else L.push('PDF')}AM.set(g,L)}
+  const tg=soma(G,g=>+g.valorTotal||0);
+  const tabG=G.length?`<table><thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Fornecedor</th><th>Pgto</th><th class="c">NF</th><th class="r">Valor</th><th class="c">Comp.</th></tr></thead><tbody>${G.map(g=>`<tr><td>${fd(g.data)}</td><td>${esc(g.categoria||'')}</td><td>${esc(g.descricao||'')}${g.pessoa?' – '+esc(g.pessoa):''}${g.obs?'<div class="sub">'+esc(g.obs)+'</div>':''}${g.pendente?' <b style="color:#c2410c">(a pagar)</b>':''}</td><td>${esc(g.fornecedor||'')}</td><td>${esc(g.pagamento||'')}</td><td class="c">${g.temNF?'SIM'+(g.numNF?' '+esc(g.numNF):''):'—'}</td><td class="r">${fm(g.valorTotal)}</td><td class="c">${(AM.get(g)||[]).map(k=>k==='PDF'?'PDF':'#'+k).join(' ')||'—'}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="6">Total (${G.length} lançamento${G.length>1?'s':''})</td><td class="r">${fm(tg)}</td><td></td></tr></tfoot></table>`:'<p class="sub">Nenhum gasto.</p>';
+  const P=new Map();(o.presencas||[]).forEach(x=>{const k=normTxt(x.p||'');if(!k)return;const r=P.get(k)||{n:x.p,d:0,f:0};r.d+=+x.f||0;r.f+=faltaPres(x)||0;P.set(k,r)});
+  const tabP=P.size?`<h2>📋 Presenças na obra</h2><table><thead><tr><th>Pessoa</th><th class="r">Dias trabalhados</th><th class="r">Faltas</th></tr></thead><tbody>${[...P.values()].sort((a,b)=>a.n.localeCompare(b.n)).map(r=>`<tr><td>${esc(r.n)}</td><td class="r">${fq(r.d)}</td><td class="r">${fq(r.f)}</td></tr>`).join('')}</tbody></table>`:'';
+  const CS=o.consumos||[],M=new Map();CS.forEach(x=>{const n=nomeMat(x),u=String(x.un||'un').trim().toLowerCase(),k=n+'|'+u;M.set(k,{n,u,q:((M.get(k)||{}).q||0)+(+x.q||0)})});
+  const tabM=M.size?`<h2>🪣 Material consumido</h2><table><thead><tr><th>Material</th><th class="r">Quantidade</th></tr></thead><tbody>${[...M.values()].sort((a,b)=>a.n.localeCompare(b.n)).map(r=>`<tr><td>${esc(r.n)}</td><td class="r">${fq(r.q)} ${esc(r.u)}</td></tr>`).join('')}</tbody></table>`:'';
+  const DR=diarioObra(o).slice().sort((a,b)=>String(a.d).localeCompare(String(b.d)));
+  const tabD=DR.length?`<h2>📔 Diário de obra</h2><table><thead><tr><th style="width:14%">Data</th><th>Serviços executados / ocorrências</th></tr></thead><tbody>${DR.map(r=>`<tr><td>${fd(r.d)}</td><td>${r.ativ?esc(r.ativ):''}${r.ocor?'<div class="sub">Ocorrências: '+esc(r.ocor)+'</div>':''}${r.equipe?'<div class="sub">Equipe: '+esc(r.equipe)+'</div>':''}</td></tr>`).join('')}</tbody></table>`:'';
+  const h=cab(`Relatório completo da obra – ${esc(o.nome)}`,[infoObra(o),`Contrato ${fm(o.valorContrato||0)} · Situação: ${stt(st)} · margem atual ${fp(c.margem)}`,`Emitido em ${fd(hoje())}`])+
+  (o.obs?`<h2>📝 Observações</h2><p>${esc(o.obs)}</p>`:'')+
+  `<h2>📐 Resumo da obra</h2>${blocoAcumulado(o)}${alertasObra(o)}
+  <h2>💵 Medições / recebimentos</h2>${tabMedicoes(o.medicoes,o)}
+  <h2>💸 Todos os gastos</h2>${tabG}
+  <h2>🧩 Gastos por categoria</h2>${tabCategorias(o.gastos,cTemOrc(o)?o.orcamento:null)}
+  ${forn.length&&!(forn.length===1&&forn[0][0]==='(não informado)')?`<h2>🏪 Fornecedores</h2><table><thead><tr><th>Fornecedor</th><th class="c">Lanç.</th><th class="r">Total</th></tr></thead><tbody>${forn.map(([f,d])=>`<tr><td>${esc(f)}</td><td class="c">${d.n}</td><td class="r">${fm(d.t)}</td></tr>`).join('')}</tbody></table>`:''}
+  <h2>📅 Mês a mês</h2>${tabMensal([o])}${tabP}${tabM}${tabD}`+
+  (AN.length?`<div class="pb"></div><h2>📎 Comprovantes dos gastos</h2><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${AN.map((a,i)=>`<div style="border:1px solid #cbd5e1;border-radius:6px;padding:6px;break-inside:avoid;page-break-inside:avoid"><div style="font-size:10.5px;margin-bottom:4px"><b>#${i+1}</b> · ${fd(a.g.data)} · ${esc(a.g.fornecedor||a.g.descricao||'')} · <b>${fm(a.g.valorTotal)}</b></div><img src="${a.u}" alt="" style="width:100%;max-height:330px;object-fit:contain"></div>`).join('')}</div>`:'');
+  abrirImpressao(`Obra completa – ${o.nome}`,h)}
 function cTemOrc(o){return Object.values(o.orcamento||{}).some(v=>+v>0)}
 function relDashObra(o){
   const c=calc(o),st=statusObra(c),forn=porFornecedor(o.gastos).slice(0,10);
